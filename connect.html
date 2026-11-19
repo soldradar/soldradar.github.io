@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>sold-radar: sign in</title>
+<style>
+  body{font-family:system-ui,sans-serif;max-width:26rem;margin:3rem auto;padding:0 1rem;line-height:1.4}
+  label{display:block;margin:.8rem 0 .2rem}
+  input{width:100%;padding:.5rem;font-size:1rem;box-sizing:border-box}
+  button{margin:1rem .5rem 0 0;padding:.6rem 1.2rem;font-size:1rem}
+  #msg{color:#b00020;margin-top:1rem}
+  [hidden]{display:none}
+</style>
+</head>
+<body>
+<h1>sold-radar</h1>
+<div id="msg" role="alert"></div>
+
+<form id="signin" hidden>
+  <label for="email">Email</label>
+  <input id="email" type="email" autocomplete="username" required>
+  <label for="password">Password</label>
+  <input id="password" type="password" autocomplete="current-password" required>
+  <button type="submit">Sign in</button>
+</form>
+
+<div id="consent" hidden>
+  <p id="question"></p>
+  <button id="approve" type="button">Allow</button>
+  <button id="deny" type="button">Deny</button>
+</div>
+
+<script>
+"use strict";
+// Public values (safe to publish). Controller fills ANON KEY before publishing.
+const SUPABASE_URL = "https://xyilyuhwyrgxkcfbmayz.supabase.co"; // fill with https://xyilyuhwyrgxkcfbmayz.supabase.co
+const SUPABASE_ANON_KEY = "sb_publishable_gIfEfHK3uvXfuliY9BPCIw_6R9oN-nw"; // FILL: project anon / publishable key
+
+const authId = new URLSearchParams(location.search).get("authorization_id");
+const $ = (id) => document.getElementById(id);
+let accessToken = null; // kept in memory only
+
+function show(el) { $("signin").hidden = el !== "signin"; $("consent").hidden = el !== "consent"; }
+function fail(text) { $("msg").textContent = text; }
+
+async function api(method, path, body, token) {
+  const headers = { apikey: SUPABASE_ANON_KEY, "content-type": "application/json" };
+  if (token) headers.authorization = "Bearer " + token;
+  const res = await fetch(SUPABASE_URL + "/auth/v1" + path, {
+    method, headers, body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch (e) { /* no body */ }
+  if (!res.ok) {
+    const m = data && (data.msg || data.message || data.error_description || data.error);
+    throw new Error(typeof m === "string" ? m : "Request failed (" + res.status + ")");
+  }
+  return data;
+}
+
+// Only these apps may be connected: a self-registered client pointing anywhere else is refused.
+const ALLOWED_REDIRECT_HOSTS = ["chatgpt.com", "chat.openai.com", "openai.com", "claude.ai", "claude.com"];
+function allowedHost(url) {
+  let u;
+  try { u = new URL(url); } catch (e) { return null; }
+  if (u.protocol !== "https:") return null;
+  const h = u.hostname.toLowerCase();
+  return ALLOWED_REDIRECT_HOSTS.some((a) => h === a || h.endsWith("." + a)) ? u : null;
+}
+function go(url) {
+  const u = allowedHost(url);
+  if (!u) throw new Error("This app is not allowed to connect.");
+  location.href = u.href;
+}
+
+async function loadConsent() {
+  const d = await api("GET", "/oauth/authorizations/" + encodeURIComponent(authId), null, accessToken);
+  if (d.redirect_url && !d.authorization_id) { go(d.redirect_url); return; } // already consented
+  const target = d.redirect_uri || d.redirect_url || "";
+  if (!allowedHost(target)) {
+    let host = ""; try { host = new URL(target).hostname; } catch (e) { /* shown as unknown */ }
+    fail("This app is not allowed to connect (" + (host || "unknown address") + ").");
+    return;
+  }
+  const name = (d.client && d.client.name) || "an application";
+  $("question").textContent = "Allow " + name + " to read sold-radar?";
+  show("consent");
+}
+
+async function decide(action) {
+  fail("");
+  try {
+    const d = await api("POST", "/oauth/authorizations/" + encodeURIComponent(authId) + "/consent", { action }, accessToken);
+    go(d.redirect_url);
+  } catch (e) { fail(e.message); }
+}
+
+$("signin").addEventListener("submit", async (ev) => {
+  ev.preventDefault(); fail("");
+  try {
+    const d = await api("POST", "/token?grant_type=password",
+      { email: $("email").value, password: $("password").value });
+    accessToken = d.access_token;
+    $("password").value = "";
+    await loadConsent();
+  } catch (e) { fail(e.message); }
+});
+$("approve").addEventListener("click", () => decide("approve"));
+$("deny").addEventListener("click", () => decide("deny"));
+
+if (!authId) fail("Missing authorization_id. Start from the app you are connecting.");
+else show("signin");
+</script>
+</body>
+</html>
