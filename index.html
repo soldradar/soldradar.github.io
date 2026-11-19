@@ -1,3 +1,2233 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>sold-radar</title></head>
-<body><h1>sold-radar</h1></body></html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sold Radar</title>
+<script src="config.js"></script>
+<script>
+try{var t=localStorage.getItem('sold-radar-theme');if(t)document.documentElement.dataset.theme=t;else if(matchMedia('(prefers-color-scheme: dark)').matches)document.documentElement.dataset.theme='dark'}catch(e){}
+</script>
+<style>
+:root{
+  --bg:#f8f6f2;--bg-2:#efece6;--ink:#111111;--ink-2:#6f6c66;--ink-3:#b5b1a8;--hair:#e3dfd7;
+  --green:#263b1c;--good:#1f7a3a;--warn:#b58a1c;--red:#c0392b;
+  --sans:"Helvetica Neue",Helvetica,"Inter",Arial,sans-serif;
+  --g:16px;--ease:cubic-bezier(.22,.8,.2,1);
+}
+:root[data-theme="dark"]{--bg:#111110;--bg-2:#19191a;--ink:#f1efe9;--ink-2:#8f8c85;--ink-3:#4e4c48;--hair:#262623;--green:#9fc08d;--good:#5bbf78;--warn:#d4ad4f;--red:#e06459}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:400 16px/1.3 var(--sans);-webkit-font-smoothing:antialiased;font-feature-settings:"tnum" 1;letter-spacing:-.005em}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;text-align:left}
+select,input{font:inherit;color:inherit;background:transparent;border:0;border-bottom:1px solid var(--ink);padding:8px 0;width:100%;border-radius:0;appearance:none;-webkit-appearance:none}
+select:focus,input:focus{outline:none}
+:focus-visible,select:focus-visible,input:focus-visible{outline:1px solid var(--ink);outline-offset:4px}
+select option{background:var(--bg);color:var(--ink)}
+input::placeholder{color:var(--ink-2);opacity:1}
+.f12{font-size:12px;line-height:1.15;text-transform:uppercase;font-weight:400}
+.f24{font-size:24px;line-height:1.2;font-weight:300;letter-spacing:-.01em}
+.f40{font-size:clamp(26px,2.8vw,40px);line-height:1.15;font-weight:400;letter-spacing:-.04em}
+.f90{font-size:clamp(46px,6.3vw,90px);line-height:1.2;font-weight:400;letter-spacing:-.04em;margin:0}
+.muted{color:var(--ink-2)}
+.vh{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;padding:0}
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));padding:0 var(--g)}
+.roll{display:inline-block;overflow:hidden;line-height:1;height:12px;vertical-align:top}
+.roll span{display:block;transition:transform .5s var(--ease)}
+button:hover .roll span{transform:translateY(-100%)}
+
+header.top{position:fixed;top:0;left:0;right:0;z-index:20;padding-top:var(--g);height:108px;background:linear-gradient(var(--bg) 0,var(--bg) 84%,transparent)}
+header .c1{grid-column:1/4}header .c4{grid-column:4/8}header .c8{grid-column:8/11}header .c11{grid-column:11/13}
+header .mark svg{width:72px;height:40px;stroke:var(--ink);fill:none;stroke-width:1.1;stroke-linecap:round;stroke-linejoin:round;margin-top:-2px}
+header nav{display:grid;grid-auto-flow:column;grid-template-rows:repeat(5,auto);justify-content:start;column-gap:28px;row-gap:2px}
+header nav button{display:block;position:relative}
+header nav button[aria-current="page"]::before{content:"";position:absolute;left:-11px;top:3px;width:5px;height:5px;border-radius:50%;background:currentColor}
+.circle{position:absolute;right:var(--g);top:var(--g);width:52px;height:52px;border:1px solid var(--ink);border-radius:50%;display:grid;place-items:center;transition:background .3s var(--ease),color .3s}
+header .circle i{width:6px;height:6px;border:1px solid currentColor;border-radius:50%;display:block;transform:translateX(12px)}
+.circle:hover{background:var(--ink);color:var(--bg)}
+
+main{padding-top:150px}
+.page-h{align-items:end;padding-bottom:40px}
+.page-h h1,.page-h h2{grid-column:1/8}
+.page-h .sub{grid-column:8/13;padding-bottom:18px}
+.page-h .sub p{margin:0 0 4px}
+.page-h .sub p.cmd{text-transform:none}
+
+.filters{scroll-margin-top:108px;border-top:1px solid var(--ink);padding-top:14px;padding-bottom:34px;row-gap:22px}
+.filters .lab{grid-column:1/4;padding-top:10px}
+.filters .fields{grid-column:4/13;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:22px 20px}
+.field label,.field .cap{display:block;color:var(--ink-2);margin-bottom:2px}
+.field.wide{grid-column:span 3;position:relative}
+.field.two{grid-column:span 2}
+.pair{display:flex;gap:10px}
+.pair select{min-width:0}
+.pair select:first-child{flex:1 1 52%}
+.pair select:last-child{flex:1 1 48%;color:var(--ink-2)}
+.ms{display:flex;flex-wrap:wrap;align-items:center;gap:6px;border-bottom:1px solid var(--ink);cursor:text;min-height:38px}
+.ms:focus-within{outline:1px solid var(--ink);outline-offset:4px}
+.ms:has(+ .dd:not([hidden])),.ms:focus-within:has(+ .dd:not([hidden])){outline:none}
+.ms input{border:0;flex:1 1 110px;width:auto;min-width:110px}
+.ms input:focus-visible{outline:none}
+.ms .chip{display:inline-flex;align-items:center;gap:8px;padding:6px 10px 6px 12px}
+.ms .chip b{font-weight:400;font-size:14px;line-height:10px}
+.dd{position:absolute;left:0;right:0;top:100%;z-index:15;margin:6px 0 0;padding:4px 0;list-style:none;background:var(--bg);border:1px solid var(--ink);max-height:320px;overflow-y:auto}
+.dd li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:9px 12px;cursor:pointer}
+.dd li .n{color:var(--ink-2)}
+.dd li.act,.dd li:hover{background:var(--bg-2)}
+.dd li.none{cursor:default;color:var(--ink-2)}
+.dd li.none:hover{background:none}
+.field label.tick{display:flex;color:var(--ink);margin:0;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--ink);cursor:pointer}
+.tick input{width:14px;height:14px;flex:0 0 14px;padding:0;margin:0;border:1px solid var(--ink);border-radius:0;cursor:pointer}
+.tick input:checked{background:var(--ink);box-shadow:inset 0 0 0 2px var(--bg)}
+.chips{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--hair);border-radius:99px;padding:8px 14px;font-size:12px;text-transform:uppercase;line-height:1;transition:all .25s var(--ease)}
+.chip:hover{border-color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+.stats{border-top:1px solid var(--hair);padding-top:16px;padding-bottom:44px}
+.stats .lab{grid-column:1/4}
+.stats .cells{grid-column:4/13;display:grid;grid-template-columns:1.7fr 1fr 1fr 1fr;gap:20px}
+.stats .cells .f40{white-space:nowrap}
+.stats .cells .f12{color:var(--ink-2);margin-bottom:8px}
+.note{grid-column:4/13;margin-top:20px}
+.note:empty{display:none}
+.warnline{color:var(--warn)}
+.errline{color:var(--red)}
+.loosen{text-transform:uppercase;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px;color:var(--warn)}
+.readout{grid-column:4/13;margin:28px 0 0;font-size:16px;line-height:1.45;color:var(--ink);max-width:70ch}
+.readout:empty{display:none}
+#median,.stats .cells,.readout,#list{transition:opacity .25s var(--ease)}
+.busy #median,.busy .stats .cells,.busy .readout,.busy #list{opacity:.45}
+
+.sec-lab{padding:0 var(--g) 10px}
+.row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));padding:16px var(--g);border-top:1px solid var(--hair);align-items:baseline;transition:background .3s var(--ease)}
+a.row:hover{background:var(--bg-2)}
+a.row:focus-visible{outline-offset:-4px}
+.row .d{grid-column:1/3}.row .a{grid-column:3/7}.row .s{grid-column:7/9}.row .f{grid-column:9/11}.row .p{grid-column:11/13;text-align:right}
+.row .a small,.row .p small{display:block;font-size:12px;text-transform:uppercase;color:var(--ink-2);margin-top:5px;line-height:1.2}
+.row .p small.flag,.row .d .flag{color:var(--warn)}
+.row.np .p .f24{color:var(--ink-3)}
+.row .a .f24,.row .s,.row .f{overflow-wrap:anywhere}
+.list{border-bottom:1px solid var(--hair);margin-bottom:60px}
+.more{display:block;width:100%;padding:16px var(--g);border-top:1px solid var(--hair);transition:background .3s var(--ease)}
+.more:hover{background:var(--bg-2)}
+
+footer{display:flex;justify-content:space-between;padding:0 var(--g) 28px;gap:20px}
+footer div div{margin-bottom:4px}
+
+.ov{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;overscroll-behavior:contain}
+.ov[hidden]{display:none}
+.ov .bar{position:sticky;top:0;z-index:1;padding-top:var(--g);height:84px;background:linear-gradient(var(--bg) 0,var(--bg) 62%,transparent)}
+.ov .bar .c1{grid-column:1/4}
+.ov .close{position:fixed;z-index:41}
+.ov .close:not(:hover){background:var(--bg)}
+.ov .close::before,.ov .close::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:1px;margin-left:-9px;background:currentColor;transform:rotate(45deg)}
+.ov .close::after{transform:rotate(-45deg)}
+.ov-main{padding-top:66px;padding-bottom:60px}
+.sect{border-top:1px solid var(--ink);padding-top:14px;padding-bottom:40px}
+.sect .lab{grid-column:1/4;padding-top:6px}
+.sect .body{grid-column:4/13}
+.sect .addr{margin:0 0 8px}
+.cols{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 40px;margin-top:34px}
+.photo{margin:0 0 24px;background:var(--bg-2)}
+.photo img{display:block;width:100%;height:auto}
+.headline{margin:0 0 14px}
+.desc{margin:0;font-size:16px;line-height:1.45;white-space:pre-line;max-width:70ch;overflow-wrap:anywhere}
+.kvs{border-bottom:1px solid var(--hair);margin-bottom:34px}
+.kvs .t{color:var(--ink-2);margin:0 0 10px}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:16px;border-top:1px solid var(--hair);padding:11px 0}
+.kv>span:first-child{color:var(--ink-2)}
+.kv>span:last-child{text-align:right;overflow-wrap:anywhere}
+.kv .flag{color:var(--warn)}
+.kv a{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.src .d{grid-column:1/3}.src .a{grid-column:3/10}.src .p{grid-column:10/13;text-align:right}
+.src .a small{display:block;text-transform:none;overflow-wrap:anywhere}
+.src.bad .d{color:var(--red)}
+.src.never .d{color:var(--ink-2)}
+.src .d.okd{color:var(--good)}
+
+/* ---------- the Estimate view ---------- */
+.q{font-size:14px;line-height:1.45;color:var(--ink-2);overflow-wrap:anywhere}
+.q.warnline{color:var(--warn)}
+.est-h{row-gap:14px}
+.est-h h1{grid-column:1/-1}
+.est-h h1.say{font-size:clamp(26px,2.8vw,40px);line-height:1.15;letter-spacing:-.04em;grid-column:1/9;max-width:30ch}
+.est-h h1.wait{color:var(--ink-2)}
+.est-h .mid{grid-column:1/8;align-self:end}
+.est-h .mid:empty{display:none}
+.est-h .sub{grid-column:8/13;padding-bottom:6px}
+.est-h .warns{grid-column:1/9}
+.est-h .warns:empty{display:none}
+.est-h .warns p{margin:0 0 4px}
+.field.at{position:relative}
+.org.feats{grid-column:1/-1;margin-top:-6px;color:var(--ink-2);line-height:1.5}
+.org.feats:empty{display:none}
+.cap.sp{visibility:hidden}
+.go{display:block;width:100%;border:1px solid var(--ink);border-radius:99px;padding:12px 14px;text-align:center;line-height:1;transition:background .3s var(--ease),color .3s}
+.go:hover{background:var(--ink);color:var(--bg)}
+.go.inl{display:inline-block;width:auto;padding:12px 18px;margin-top:14px}
+.est-res .body{grid-column:4/13}
+.est-res p{margin:0}
+.est-res .tested{margin-top:18px;font-size:16px;line-height:1.45;max-width:70ch}
+.est-res .vals{margin-top:14px}
+.est-res .q{margin-top:10px}
+.est-res .prior{margin-top:26px}
+.est-res .prior .f12{color:var(--ink-2);margin-bottom:6px}
+.est-res .prior p{font-size:16px;line-height:1.45;margin:0 0 2px}
+.prof{border-bottom:1px solid var(--hair)}
+.prof .pg:first-child{border-top:0;padding-top:6px}
+.pg{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,3fr);gap:4px 20px;border-top:1px solid var(--hair);padding:12px 0;align-items:baseline}
+.pg .k{color:var(--ink-2)}
+.pg .v{font-size:16px;line-height:1.4;overflow-wrap:anywhere}
+.pg .v .src{display:block;font-size:12px;line-height:1.3;color:var(--ink-2);margin-top:4px}
+.pg .v .q{display:block;margin-top:4px}
+.pg.off .v{color:var(--ink-2)}
+.prof-end{margin:14px 0 0}
+.cmp .d{grid-column:1/3}.cmp .a{grid-column:3/10}.cmp .p{grid-column:10/13;text-align:right}
+.cmp .adj{grid-column:3/10;margin-top:10px}
+.cmp .w{grid-column:10/13;text-align:right;margin-top:10px}
+.cmp .w .adjp{font-size:16px;line-height:1.3}
+.cmp .w small{display:block;font-size:12px;text-transform:uppercase;color:var(--ink-2);margin-top:5px;line-height:1.2}
+.ebusy #est-mid,.ebusy #est-res,.ebusy #est-prof-sect,.ebusy #est-comps{opacity:.45}
+#est-mid,#est-res,#est-prof-sect,#est-comps{transition:opacity .25s var(--ease)}
+.lnk{text-transform:uppercase;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.dsrc .d{grid-column:1/4}.dsrc .a{grid-column:4/11}.dsrc .p{grid-column:11/13;text-align:right}
+.dsrc .a small{text-transform:none}
+.dsrc .p a{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+
+/* ---------- the For sale view ---------- */
+body.fs .sold-only{display:none}
+.fs-ctl{border-top:1px solid var(--hair);padding-top:14px;padding-bottom:30px;row-gap:16px}
+.fs-ctl .lab{grid-column:1/4;padding-top:10px}
+.fs-ctl .fields{grid-column:4/13;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:18px 20px;align-items:end}
+.fs-ctl .chips{grid-column:span 4}
+.fs-ctl .field{grid-column:span 2}
+.fs-list{transition:opacity .25s var(--ease)}
+.fbusy .fs-list,.fbusy #fs-count,.fbusy #market-body{opacity:.45}
+#market-body{transition:opacity .25s var(--ease)}
+.row.fs{align-items:start;column-gap:16px}
+.row.fs .ph{grid-column:1/3}
+.row.fs .ph .box{display:block;aspect-ratio:3/2;background:var(--bg-2);overflow:hidden}
+.row.fs .ph img{display:block;width:100%;height:100%;object-fit:cover}
+.row.fs .a{grid-column:3/7}
+.row.fs .m{grid-column:7/10}
+.row.fs .e{grid-column:10/12}
+.row.fs .st{grid-column:12/13;text-align:right}
+.row.fs .a .f24 a:hover{text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:1px}
+.row.fs small{display:block;font-size:12px;text-transform:uppercase;color:var(--ink-2);margin-top:5px;line-height:1.3}
+.row.fs small.mark{color:var(--ink)}
+.row.fs .f24{overflow-wrap:anywhere}
+.row.fs .e .f24{font-size:20px}
+.row.fs small.gap-above{color:var(--warn)}
+.row.fs small.gap-below{color:var(--good)}
+.row.fs .none{color:var(--ink-2)}
+.star{font-size:24px;line-height:1;padding:2px 4px;color:var(--ink-3);transition:color .2s}
+.star:hover,.star.on{color:var(--ink)}
+.star.on{color:var(--warn)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:99px}
+
+/* ---------- the home page ---------- */
+.home-h{align-items:end}
+.home-h h1{grid-column:1/8;margin:0;overflow-wrap:anywhere}
+.home-h .sub p.q{margin:0}
+.price-blk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 40px}
+.price-blk .f12{color:var(--ink-2);margin-bottom:8px}
+.price-blk .f40{overflow-wrap:anywhere}
+.price-blk .q{margin-top:10px}
+.facts{margin:0 0 14px}
+.row.hist{padding-left:0;padding-right:0}
+.hist .d{grid-column:1/4}.hist .a{grid-column:4/13}
+.hist.gapnote .a{color:var(--ink-2)}
+.notes textarea{display:block;width:100%;min-height:140px;resize:vertical;border:1px solid var(--hair);background:transparent;color:inherit;font:inherit;line-height:1.45;padding:12px;border-radius:0}
+.notes textarea:focus{outline:none;border-color:var(--ink)}
+.notes .saved{margin-top:8px;min-height:1em}
+
+@media (max-width:900px){
+  header .c4{display:none}header .c8{grid-column:5/9}header .c11{grid-column:9/12}
+  .page-h h1,.page-h h2,.page-h .sub{grid-column:1/-1}.page-h .sub{padding-top:12px}
+  .filters .lab,.stats .lab,.sect .lab{grid-column:1/-1;padding-bottom:14px}
+  .filters .fields,.stats .cells,.note,.readout,.sect .body{grid-column:1/-1}
+  .filters .fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .stats .cells{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .row .d{grid-column:1/-1;margin-bottom:6px}.row .a{grid-column:1/8}.row .p{grid-column:8/13}
+  .row .s{grid-column:1/7;margin-top:10px}.row .f{grid-column:7/13;margin-top:10px;text-align:right}
+  .src .a{grid-column:1/9}.src .p{grid-column:9/13}
+  .cols{grid-template-columns:minmax(0,1fr)}
+  .est-h h1.say,.est-h .mid,.est-h .sub,.est-h .warns,.est-res .body{grid-column:1/-1}
+  .est-h .sub{padding:0}
+  .cmp .d{grid-column:1/-1;margin-bottom:6px}.cmp .a{grid-column:1/8}.cmp .p{grid-column:8/13}
+  .cmp .adj{grid-column:1/-1}.cmp .w{grid-column:1/-1}
+  .dsrc .d{grid-column:1/-1;margin-bottom:6px}.dsrc .a{grid-column:1/10}.dsrc .p{grid-column:10/13}
+  .fs-ctl .lab{grid-column:1/-1;padding-bottom:14px}.fs-ctl .fields{grid-column:1/-1}
+  .row.fs .ph{grid-column:1/5}.row.fs .a{grid-column:5/12}.row.fs .st{grid-column:12/13}
+  .row.fs .m{grid-column:5/9;margin-top:10px}.row.fs .e{grid-column:9/13;margin-top:10px}
+  .home-h h1,.price-blk{grid-column:1/-1}.price-blk{grid-template-columns:minmax(0,1fr)}
+  .hist .d{grid-column:1/-1;margin-bottom:6px}.hist .a{grid-column:1/-1}
+}
+@media (max-width:600px){
+  header .c11{display:none}header .c8{grid-column:4/11}
+  .filters .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .field.wide{grid-column:1/-1}
+  .stats .cells>div:first-child{grid-column:1/-1}
+  .pg{grid-template-columns:minmax(0,1fr)}
+  .field.gof{grid-column:1/-1}.field.gof .cap{display:none}
+}
+
+/* ---------- the Shortlist and Market views ---------- */
+.sl-empty{grid-column:1/9;padding:20px 0 60px}
+.sl-empty p{margin:0 0 10px}
+.sl-lab{margin-top:40px}
+.row.hist.sl-ch{padding-left:var(--g);padding-right:var(--g)}
+.row.sl .a{grid-column:1/6}.row.sl .m{grid-column:6/9}.row.sl .e{grid-column:9/12}.row.sl .st{grid-column:12/13;text-align:right}
+.row.sl .a p.q{margin:8px 0 0;text-transform:none}
+.mk-tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px 40px}
+.mk-tiles .f12{color:var(--ink-2);margin-bottom:8px}
+.mk-tiles .q{margin:10px 0 0}
+.mk-cov{margin:28px 0 0}
+.mk-cap{margin:10px 0 0}
+.mk-sub{margin:22px 0 8px}
+.mk-sub:first-child{margin-top:0}
+.ch{display:block;width:100%;height:auto;overflow:visible}
+.ch .gl{stroke:var(--hair);stroke-width:1}
+.ch .tx{fill:var(--ink-2);font:10px var(--sans)}
+.ch .tx-n{fill:var(--ink-2)}
+.ch .bar{fill:var(--ink)}.ch .bar.few{fill:var(--warn)}
+.ch .ln{fill:none;stroke-width:1.6;stroke-linejoin:round}
+.ch .ln.a{stroke:var(--ink)}.ch .ln.s{stroke:var(--good)}.ch .ln.lv{stroke:var(--ink-2);stroke-width:1.4}
+.ch .pt.a{fill:var(--ink);stroke:var(--ink)}.ch .pt.s{fill:var(--good);stroke:var(--good)}
+.ch .pt.few{fill:var(--bg);stroke-width:1.6}
+.legend{display:flex;flex-wrap:wrap;gap:6px 22px;margin:0 0 12px;color:var(--ink-2)}
+.legend i{display:inline-block;width:16px;height:2px;vertical-align:middle;margin-right:8px}
+.legend i.sw-a{background:var(--ink)}.legend i.sw-s{background:var(--good)}
+@media (max-width:900px){
+  .sl-empty{grid-column:1/-1}
+  .row.sl .a{grid-column:1/12}.row.sl .st{grid-column:12/13}.row.sl .m{grid-column:1/7;margin-top:10px}.row.sl .e{grid-column:7/13;margin-top:10px}
+  .mk-tiles{grid-template-columns:minmax(0,1fr)}
+}
+#signin{max-width:420px;margin:0 auto;padding:18vh var(--g) 60px}
+#signin h1{margin:0 0 28px}
+#signin .field{margin-bottom:22px}
+#signin .go{margin-top:8px}
+#signin .go[disabled]{opacity:.45;cursor:default}
+#signin .msg{min-height:1.4em;margin:18px 0 0}
+body.locked #hdr,body.locked #main,body.locked footer,body.locked .ov,body.locked .toast{display:none!important}
+</style>
+</head>
+<body>
+<header class="top grid" id="hdr">
+  <a class="c1 f12 home" href="#">Sold<br>Radar</a>
+  <a class="c4 mark home" href="#" aria-label="Sold Radar"><svg viewBox="0 0 72 40" aria-hidden="true"><path d="M4 34h64M12 34V17l16-12 16 12v17M34 34V24h-8v10M44 22h14v12"/><circle cx="64" cy="31" r="1.2" fill="currentColor" stroke="none"/></svg></a>
+  <nav class="c8 f12" aria-label="Page">
+    <button id="to-sold" type="button" aria-current="page"><span class="roll"><span>Sold</span><span aria-hidden="true">Sold</span></span></button>
+    <button id="to-fs" type="button"><span class="roll"><span>For sale</span><span aria-hidden="true">For sale</span></span></button>
+    <button id="to-short" type="button"><span class="roll"><span>Shortlist</span><span aria-hidden="true">Shortlist</span></span></button>
+    <button id="to-market" type="button"><span class="roll"><span>Market</span><span aria-hidden="true">Market</span></span></button>
+    <button id="to-est" type="button"><span class="roll"><span>Estimate</span><span aria-hidden="true">Estimate</span></span></button>
+    <button id="open-sources" type="button"><span class="roll"><span>Sources</span><span aria-hidden="true">Sources</span></span></button>
+    <button id="search" type="button"><span class="roll"><span>Search</span><span aria-hidden="true">Search</span></span></button>
+    <button id="copy" type="button"><span class="roll"><span>Copy for an assistant</span><span aria-hidden="true">Copy for an assistant</span></span></button>
+  </nav>
+  <div class="c11 f12"><div>Last collected</div><div id="last-run">—</div></div>
+  <button class="circle" id="theme" type="button" aria-label="Toggle light and dark"><i></i></button>
+</header>
+
+<main id="main">
+ <div id="v-sold">
+  <div class="grid page-h">
+    <h1 class="f90" id="median" tabindex="-1">—</h1>
+    <div class="sub f12"><p id="basis"></p><p class="muted" id="summary"></p></div>
+  </div>
+
+  <div id="sold-filters-slot">
+  <form class="grid filters" id="filters" onsubmit="return false">
+    <div class="lab f12">Filters</div>
+    <div class="fields">
+      <div class="field wide" id="sub-field">
+        <label class="f12" for="sub-input">Suburbs</label>
+        <div class="ms" id="sub-box">
+          <span id="sub-tags" style="display:contents"></span>
+          <input id="sub-input" type="text" autocomplete="off" spellcheck="false" placeholder="All suburbs"
+                 role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="sub-list">
+        </div>
+        <ul class="dd" id="sub-list" role="listbox" aria-label="Suburbs" hidden></ul>
+      </div>
+      <div class="field"><label class="f12" for="type">Type</label><select id="type"></select></div>
+      <div class="field"><label class="f12" for="beds">Beds</label>
+        <div class="pair"><select id="beds"></select><label class="vh" for="beds_mode">Beds match</label><select id="beds_mode"><option value="exact">exact</option><option value="min">or more</option></select></div></div>
+      <div class="field"><label class="f12" for="baths">Baths</label>
+        <div class="pair"><select id="baths"></select><label class="vh" for="baths_mode">Baths match</label><select id="baths_mode"><option value="exact">exact</option><option value="min">or more</option></select></div></div>
+
+      <div class="field"><label class="f12" for="cars">Car spaces</label>
+        <div class="pair"><select id="cars"></select><label class="vh" for="cars_mode">Car spaces match</label><select id="cars_mode"><option value="exact">exact</option><option value="min">or more</option></select></div></div>
+      <div class="field"><label class="f12" for="land_min">Land from, m²</label><input id="land_min" type="number" min="0" step="50" inputmode="numeric" placeholder="Any"></div>
+      <div class="field"><label class="f12" for="land_max">Land to, m²</label><input id="land_max" type="number" min="0" step="50" inputmode="numeric" placeholder="Any"></div>
+      <div class="field"><label class="f12" for="building_min">Building from, m²</label><input id="building_min" type="number" min="0" step="10" inputmode="numeric" placeholder="Any"></div>
+      <div class="field"><label class="f12" for="building_max">Building to, m²</label><input id="building_max" type="number" min="0" step="10" inputmode="numeric" placeholder="Any"></div>
+      <div class="field sold-only"><label class="f12" for="months">Sold in last</label><select id="months"><option value="6">6 months</option><option value="12">12 months</option><option value="24">24 months</option><option value="36">3 years</option><option value="all">Any time</option></select></div>
+
+      <div class="field"><label class="f12" for="price_min">Price from, $</label><input id="price_min" type="number" min="0" step="50000" inputmode="numeric" placeholder="Any"></div>
+      <div class="field"><label class="f12" for="price_max">Price to, $</label><input id="price_max" type="number" min="0" step="50000" inputmode="numeric" placeholder="Any"></div>
+      <div class="field two sold-only"><span class="cap f12" id="undated-cap">Undated sales</span>
+        <label class="tick"><input id="include_undated" type="checkbox" aria-labelledby="undated-cap undated-txt"><span id="undated-txt">Include them</span></label></div>
+
+      <div class="chips" id="chips" role="group" aria-label="Features and yard"></div>
+    </div>
+  </form>
+  </div>
+
+  <div class="grid stats">
+    <div class="lab f12">What they sold for</div>
+    <div class="cells">
+      <div><div class="f12">Typical range</div><div class="f40" id="typ">—</div></div>
+      <div><div class="f12">Lowest</div><div class="f40" id="lo">—</div></div>
+      <div><div class="f12">Highest</div><div class="f40" id="hi">—</div></div>
+      <div><div class="f12">Per m² of land</div><div class="f40" id="pm">—</div></div>
+    </div>
+    <div class="note f12 muted" id="note" aria-live="polite"></div>
+    <p class="readout" id="readout"></p>
+  </div>
+
+  <div class="sec-lab f12" id="sec-lab">Matching sales</div>
+  <div class="list" id="list"></div>
+ </div>
+
+ <div id="v-est" hidden>
+  <div class="grid page-h est-h">
+    <h1 class="f90" id="est-h" tabindex="-1">—</h1>
+    <div class="mid" id="est-mid"></div>
+    <div class="sub f12"><p id="est-addr">Type an address, choose its suburb, then Look up</p><p class="muted" id="est-label"></p></div>
+    <div class="warns" id="est-warn"></div>
+  </div>
+  <p class="vh" id="est-live" aria-live="polite"></p>
+
+  <form class="grid filters" id="est-form" onsubmit="return false">
+    <div class="lab f12">The home</div>
+    <div class="fields">
+      <div class="field wide"><label class="f12" for="e-address">Address</label>
+        <input id="e-address" type="text" autocomplete="off" spellcheck="false" placeholder="Street number and name"></div>
+      <div class="field two at">
+        <label class="f12" for="e-sub-input">Suburb</label>
+        <div class="ms"><input id="e-sub-input" type="text" autocomplete="off" spellcheck="false" placeholder="Choose a suburb"
+               role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="e-sub-list"></div>
+        <ul class="dd" id="e-sub-list" role="listbox" aria-label="Suburb" hidden></ul>
+      </div>
+      <div class="field gof"><span class="cap f12 sp" aria-hidden="true">Look up</span><button class="go f12" id="e-go" type="submit">Look up</button></div>
+
+      <div class="field"><label class="f12" for="e-type">Type</label><select id="e-type"></select></div>
+      <div class="field"><label class="f12" for="e-beds">Beds</label><select id="e-beds"></select></div>
+      <div class="field"><label class="f12" for="e-baths">Baths</label><select id="e-baths"></select></div>
+      <div class="field"><label class="f12" for="e-cars">Car spaces</label><select id="e-cars"></select></div>
+      <div class="field"><label class="f12" for="e-land">Land, m²</label><input id="e-land" type="number" min="0" step="10" inputmode="numeric" placeholder="not known"></div>
+      <div class="field"><label class="f12" for="e-building">Building, m²</label><input id="e-building" type="number" min="0" step="10" inputmode="numeric" placeholder="Optional"></div>
+
+      <div class="chips" id="e-chips" role="group" aria-label="Features"></div>
+      <div class="org feats f12" id="o-all"></div>
+    </div>
+  </form>
+
+  <div class="grid stats est-res" id="est-res" hidden>
+    <div class="lab f12">How sure</div>
+    <div class="body">
+      <p class="f12" id="est-conf"></p>
+      <p class="tested" id="est-tested"></p>
+      <p class="f24 vals" id="est-values"></p>
+      <div id="est-notes"></div>
+      <div class="prior" id="est-prior" hidden></div>
+    </div>
+  </div>
+
+  <div class="grid sect" id="est-prof-sect" hidden>
+    <div class="lab f12">This property<br><span class="muted">Measured, with source</span></div>
+    <div class="body" id="est-prof"></div>
+  </div>
+
+  <div class="sec-lab f12" id="est-comps-lab" hidden>The comparable sales</div>
+  <div class="list" id="est-comps" hidden></div>
+ </div>
+
+ <div id="v-forsale" hidden>
+  <div class="grid page-h">
+    <h1 class="f90" id="fs-count" tabindex="-1">—</h1>
+    <div class="sub f12"><p id="fs-basis"></p><p class="muted" id="fs-summary"></p></div>
+  </div>
+  <div id="fs-filters-slot"></div>
+  <div class="grid fs-ctl">
+    <div class="lab f12">Show</div>
+    <div class="fields">
+      <div class="chips" id="fs-status" role="group" aria-label="Status"></div>
+      <div class="field"><label class="f12" for="fs-sort">Sort by</label>
+        <select id="fs-sort"><option value="newest">Newest</option><option value="asking">Asking</option><option value="gap">Gap to estimate</option><option value="days">Days listed</option></select></div>
+    </div>
+  </div>
+  <div class="sec-lab f12" id="fs-lab">Homes for sale</div>
+  <div class="list fs-list" id="fs-list"></div>
+ </div>
+
+ <div id="v-home" hidden>
+  <div class="grid page-h home-h">
+    <h1 class="f40" id="home-h" tabindex="-1">—</h1>
+    <div class="sub f12"><p id="home-status"></p><p class="muted" id="home-sub"></p><p><button class="go inl f12" id="home-star" type="button" aria-pressed="false" hidden>Star</button></p></div>
+  </div>
+  <div id="home-body"></div>
+ </div>
+
+ <div id="v-short" hidden>
+  <div class="grid page-h"><h1 class="f90">Shortlist</h1></div>
+  <div id="short-body"></div>
+ </div>
+
+ <div id="v-market" hidden>
+  <div class="grid page-h"><h1 class="f90">Market</h1><div class="sub f12"><p>For sale and sold, for the homes below</p><p class="muted" id="mk-summary"></p></div></div>
+  <div id="mk-filters-slot"></div>
+  <div id="market-body"></div>
+ </div>
+</main>
+
+<footer class="f12 muted" id="ftr">
+  <div><div>Sunshine Coast and Noosa sales</div><div id="ft-read">—</div></div>
+  <div style="text-align:right"><div id="ft-failed"></div><div>Private — for personal research</div></div>
+</footer>
+
+<footer class="f12 muted" id="ftr-est" hidden>
+  <div><div>Home value estimates</div><div id="ft-basis">No estimate yet</div></div>
+  <div style="text-align:right"><div><button class="lnk" id="open-data" type="button">Data sources</button></div><div>Private — for personal research</div></div>
+</footer>
+
+<footer class="f12 muted" id="ftr-fs" hidden>
+  <div><div id="ft-fs-read">—</div><div id="ft-fs-missing"></div></div>
+  <div style="text-align:right"><div>Last run <span id="ft-fs-run">—</span></div><div>Private — for personal research</div></div>
+</footer>
+
+<footer class="f12 muted" id="ftr-host" hidden>
+  <div id="ft-host-upd"></div>
+  <div style="text-align:right"><button class="lnk" id="sign-out" type="button">Sign out</button></div>
+</footer>
+
+<div class="toast f12" id="toast" role="status" aria-live="polite" hidden></div>
+
+<div class="ov" id="ov-sale" role="dialog" aria-modal="true" aria-labelledby="sale-h" hidden>
+  <div class="grid bar"><div class="c1 f12">Sold<br>Radar</div></div>
+  <button class="circle close" type="button" aria-label="Close sale detail"></button>
+  <div class="ov-main" id="sale-body"></div>
+</div>
+
+<div class="ov" id="ov-sources" role="dialog" aria-modal="true" aria-labelledby="sources-h" hidden>
+  <div class="grid bar"><div class="c1 f12">Sold<br>Radar</div></div>
+  <button class="circle close" type="button" aria-label="Close sources"></button>
+  <div class="ov-main" id="sources-body"></div>
+</div>
+
+<div class="ov" id="ov-data" role="dialog" aria-modal="true" aria-labelledby="data-h" hidden>
+  <div class="grid bar"><div class="c1 f12">Sold<br>Radar</div></div>
+  <button class="circle close" type="button" aria-label="Close data sources"></button>
+  <div class="ov-main" id="data-body"></div>
+</div>
+
+<script>
+'use strict';
+const $=s=>document.querySelector(s);
+const el=(tag,cls,text)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e};
+const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const pad=n=>String(n).padStart(2,'0');
+const aud=v=>'$'+Math.round(v).toLocaleString('en-AU');
+const short=v=>'$'+(v/1e6).toFixed(2)+'m';
+const area=v=>Math.round(v).toLocaleString('en-AU')+' m²';
+const fmtD=iso=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');return m?(+m[3])+' '+MON[+m[2]-1]+' '+m[1]:String(iso)};
+const fmtRun=iso=>{const t=new Date(iso);return isNaN(t)?String(iso):t.getDate()+' '+MON[t.getMonth()]+' . '+pad(t.getHours())+':'+pad(t.getMinutes())};
+const fmtRunLong=iso=>{const t=new Date(iso);return isNaN(t)?String(iso):t.getDate()+' '+MON[t.getMonth()]+' '+t.getFullYear()+' . '+pad(t.getHours())+':'+pad(t.getMinutes())};
+const plural=(n,one,many)=>n===1?one:(many||one+'s');
+const isWeb=u=>typeof u==='string'&&/^https?:\/\//i.test(u);
+const APPROX=new Set(['first_seen','year_inferred']);
+const TYPE_LABEL={house:'House',unit:'Unit',townhouse:'Townhouse',land:'Land',rural:'Rural',other:'Other'};
+const TYPE_PLURAL={house:'Houses',unit:'Units',townhouse:'Townhouses',land:'Land',rural:'Rural',other:'Other'};
+const ORIGIN={source:'Listed by the agency',description:'Found in the description'};
+const PRICE_FLAG={hidden:'Not publicly displayed',rounded:'Rounded by agency',unconfirmed:'Price unconfirmed'};
+const ROWS_AT_ONCE=300;
+
+/* ---------- where we are running, and the one door to the network ---------- */
+// <session-module>
+/* Hosted mode: sign-in session, token refresh, and the single api() every request goes through.
+   Everything it touches comes in through deps, so it can be tested in Node with fakes.
+   deps: {config, fetch, local, session, now(): ms, onSignedOut(message)} */
+function createSession(deps){
+  const KEY='sold-radar-session',cfg=deps.config||{mode:'mac'};
+  const hosted=cfg.mode==='hosted';
+  const SIGNED_OUT='Please sign in again.';
+  let inflight=null,notified=false;
+  const stores=()=>[deps.local,deps.session].filter(Boolean);
+  function read(){
+    for(const st of stores()){
+      try{const raw=st.getItem(KEY);if(raw){const s=JSON.parse(raw);if(s&&s.access_token&&s.refresh_token)return {s,st}}}catch(e){}
+    }
+    return null;
+  }
+  function write(st,s){try{st.setItem(KEY,JSON.stringify(s))}catch(e){}}
+  function clear(){stores().forEach(st=>{try{st.removeItem(KEY)}catch(e){}})}
+  function pack(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Math.floor(deps.now()/1000)+(+j.expires_in||3600)}}
+  async function authPost(path,body,token){
+    const headers={'Content-Type':'application/json',apikey:cfg.key};
+    if(token)headers.Authorization='Bearer '+token;
+    const res=await deps.fetch(cfg.auth+path,{method:'POST',headers,body:body?JSON.stringify(body):undefined});
+    let j=null;try{j=await res.json()}catch(e){}
+    return {res,j};
+  }
+  async function signIn(email,password,stay){
+    let out;
+    try{out=await authPost('/token?grant_type=password',{email,password})}
+    catch(e){throw new Error('Could not reach the sign-in service. Try again.')}
+    const {res,j}=out;
+    if(res.status===400||res.status===401||res.status===422)throw new Error('Email or password not right.');
+    if(!res.ok||!j||!j.access_token||!j.refresh_token)throw new Error('Could not sign in. Try again.');
+    clear();
+    write(stay?deps.local:deps.session,pack(j));
+    notified=false;
+  }
+  async function signOut(){
+    const cur=read();
+    clear();notified=true;
+    if(cur){try{await authPost('/logout',null,cur.s.access_token)}catch(e){}}
+  }
+  function lose(){
+    clear();
+    if(!notified){notified=true;deps.onSignedOut(SIGNED_OUT)}
+    const e=new Error(SIGNED_OUT);e.status=401;e.signedOut=true;throw e;
+  }
+  /* one refresh at a time; refresh tokens rotate, so always keep the newest.
+     If another tab rotated it first our attempt fails once: then use what that tab stored. */
+  function refresh(old){
+    if(inflight)return inflight;
+    inflight=(async()=>{
+      const cur=read();
+      if(cur&&cur.s.refresh_token!==old.refresh_token)return cur.s;   // someone already refreshed
+      const {res,j}=await authPost('/token?grant_type=refresh_token',{refresh_token:old.refresh_token});
+      if(res.ok&&j&&j.access_token&&j.refresh_token){
+        const s=pack(j);write(cur?cur.st:deps.session,s);return s;
+      }
+      if(res.status>=500)throw new Error('The server answered '+res.status);
+      const again=read();
+      if(again&&again.s.refresh_token!==old.refresh_token)return again.s;
+      return null;
+    })().finally(()=>{inflight=null});
+    return inflight;
+  }
+  function send(path,opts,token){
+    const o=Object.assign({},opts||{});
+    o.headers=Object.assign({},o.headers,{Authorization:'Bearer '+token,apikey:cfg.key},cfg.region?{'x-region':cfg.region}:{});
+    return deps.fetch(cfg.api+path,o);
+  }
+  async function api(path,opts){
+    if(!hosted)return deps.fetch(path,opts);
+    const cur=read();
+    if(!cur)return lose();
+    let s=cur.s;
+    if(s.expires_at-deps.now()/1000<60){
+      const n=await refresh(s);
+      if(!n)return lose();
+      s=n;
+    }
+    let res=await send(path,opts,s.access_token);
+    if(res.status===401){
+      const n=await refresh(s);
+      if(!n)return lose();
+      res=await send(path,opts,n.access_token);
+    }
+    if(res.status===401||res.status===403)return lose();
+    return res;
+  }
+  return {hosted,api,signIn,signOut,signedIn:()=>!!read(),SIGNED_OUT};
+}
+// </session-module>
+const SR=(typeof window.SOLD_RADAR==='object'&&window.SOLD_RADAR)||{mode:'mac'};
+const HOSTED=SR.mode==='hosted';
+const sess=createSession({config:SR,fetch:(u,o)=>fetch(u,o),now:()=>Date.now(),
+  local:(()=>{try{return localStorage}catch(e){return null}})(),
+  session:(()=>{try{return sessionStorage}catch(e){return null}})(),
+  onSignedOut:m=>showSignIn(m)});
+const api=sess.api;
+
+/* ---------- filter state, mirrored in the URL with the API's parameter names ---------- */
+const NUMS=['land_min','land_max','building_min','building_max','price_min','price_max'];
+const COUNTS=['beds','baths','cars'];
+const DEFAULTS={suburbs:[],type:'house',beds:'',beds_mode:'exact',baths:'',baths_mode:'min',cars:'',cars_mode:'min',
+  land_min:'',land_max:'',building_min:'',building_max:'',price_min:'',price_max:'',months:'12',features:[],yard:'',include_undated:false};
+let state=structuredClone(DEFAULTS);
+let meta=null;
+let view='sold',soldStarted=false;
+
+function toParams(s){
+  const p=new URLSearchParams();
+  s.suburbs.forEach(x=>p.append('suburb',x));
+  if(s.type!==DEFAULTS.type)p.set('type',s.type||'any');
+  COUNTS.forEach(k=>{if(s[k]!==''){p.set(k,s[k]);p.set(k+'_mode',s[k+'_mode'])}});
+  NUMS.forEach(k=>{if(s[k]!=='')p.set(k,s[k])});
+  if(s.months!==DEFAULTS.months)p.set('months',s.months);
+  s.features.forEach(x=>p.append('feature',x));
+  if(s.yard)p.set('yard',s.yard);
+  if(s.include_undated)p.set('include_undated','1');
+  return p;
+}
+function fromParams(p){
+  const s=structuredClone(DEFAULTS);
+  s.suburbs=[...new Set(p.getAll('suburb').map(x=>x.trim()).filter(Boolean))];
+  if(p.has('type'))s.type=p.get('type')||'any';
+  COUNTS.forEach(k=>{const v=(p.get(k)||'').trim();if(/^\d+$/.test(v))s[k]=v;const m=p.get(k+'_mode');if(m==='exact'||m==='min')s[k+'_mode']=m});
+  NUMS.forEach(k=>{const v=(p.get(k)||'').trim();if(v!==''&&isFinite(+v))s[k]=v});
+  if(p.has('months')){const m=(p.get('months')||'').trim();s.months=(m===''||m==='all')?'all':(/^\d+$/.test(m)&&+m>0?m:DEFAULTS.months)}
+  s.features=[...new Set(p.getAll('feature').map(x=>x.trim()).filter(Boolean))];
+  s.yard=(p.get('yard')||'').trim();
+  s.include_undated=['1','true'].includes((p.get('include_undated')||'').toLowerCase());
+  return s;
+}
+
+/* ---------- controls ---------- */
+function fillCountSelect(id,from,to){
+  const sel=$('#'+id);sel.replaceChildren(new Option('Any',''));
+  for(let i=from;i<=to;i++)sel.append(new Option(String(i),String(i)));
+}
+fillCountSelect('beds',1,6);fillCountSelect('baths',1,4);fillCountSelect('cars',0,4);
+
+function ensureOption(sel,value,label){
+  if(value!==''&&![...sel.options].some(o=>o.value===value))sel.append(new Option(label,value));
+}
+function syncControls(){
+  const typeSel=$('#type');
+  ensureOption(typeSel,state.type,state.type);
+  typeSel.value=state.type;
+  COUNTS.forEach(k=>{const sel=$('#'+k);ensureOption(sel,state[k],state[k]);sel.value=state[k];$('#'+k+'_mode').value=state[k+'_mode']});
+  NUMS.forEach(k=>{if($('#'+k).value!==state[k])$('#'+k).value=state[k]});
+  ensureOption($('#months'),state.months,state.months+' months');
+  $('#months').value=state.months;
+  $('#include_undated').checked=state.include_undated;
+  renderTags();
+  renderChips();
+}
+
+/* feature and yard chips, from /api/meta */
+function renderChips(){
+  if(!meta)return;
+  const box=$('#chips');box.replaceChildren();
+  const known=new Set(meta.features.map(f=>f.name));
+  const feats=[...meta.features,...state.features.filter(n=>!known.has(n)).map(n=>({name:n,label:n.replace(/_/g,' ')}))];
+  feats.forEach(f=>{
+    const on=state.features.includes(f.name);
+    const b=el('button','chip'+(on?' on':''),f.label);b.type='button';b.setAttribute('aria-pressed',String(on));
+    b.onclick=()=>{state.features=on?state.features.filter(n=>n!==f.name):[...state.features,f.name];renderChips();refocusChip(f.name,'f');run()};
+    b.dataset.key='f:'+f.name;box.append(b);
+  });
+  const yards=[...meta.yards];if(state.yard&&!yards.includes(state.yard))yards.push(state.yard);
+  yards.forEach(y=>{
+    const on=state.yard===y;
+    const b=el('button','chip'+(on?' on':''),y+' yard');b.type='button';b.setAttribute('aria-pressed',String(on));
+    b.onclick=()=>{state.yard=on?'':y;renderChips();refocusChip(y,'y');run()};
+    b.dataset.key='y:'+y;box.append(b);
+  });
+}
+function refocusChip(name,kind){const b=$('#chips').querySelector(`[data-key="${CSS.escape(kind+':'+name)}"]`);if(b)b.focus()}
+
+/* suburb multi-select */
+const subInput=$('#sub-input'),subList=$('#sub-list');
+let subShown=[],subActive=-1;
+function renderTags(){
+  const tags=$('#sub-tags');tags.replaceChildren();
+  state.suburbs.forEach(name=>{
+    const b=el('button','chip on');b.type='button';b.setAttribute('aria-label','Remove '+name);
+    b.append(el('span',null,name));const x=el('b',null,'×');x.setAttribute('aria-hidden','true');b.append(x);
+    b.onclick=()=>{removeSuburb(name);subInput.focus()};
+    tags.append(b);
+  });
+  subInput.placeholder=state.suburbs.length?'Add a suburb':'All suburbs';
+}
+function openList(){
+  if(!meta)return;
+  const q=subInput.value.trim().toLowerCase();
+  subShown=meta.suburbs.filter(s=>!state.suburbs.includes(s.name)&&s.name.toLowerCase().includes(q));
+  if(q)subShown.sort((a,b)=>(b.name.toLowerCase().startsWith(q))-(a.name.toLowerCase().startsWith(q)));
+  subActive=q&&subShown.length?0:-1;
+  subList.replaceChildren();
+  if(!subShown.length){const li=el('li','none f12',meta.suburbs.length?'No suburb matches':'No suburbs yet');subList.append(li)}
+  subShown.forEach((s,i)=>{
+    const li=el('li');li.id='sub-opt-'+i;li.setAttribute('role','option');
+    li.append(el('span',null,s.name),el('span','n f12',s.count.toLocaleString('en-AU')+' '+plural(s.count,'sale')));
+    li.addEventListener('mousedown',e=>e.preventDefault());
+    li.onclick=()=>addSuburb(s.name);
+    li.onmousemove=()=>{if(subActive!==i){subActive=i;markActive(false)}};
+    subList.append(li);
+  });
+  subList.hidden=false;subInput.setAttribute('aria-expanded','true');
+  markActive(true);
+}
+function closeList(){subList.hidden=true;subInput.setAttribute('aria-expanded','false');subInput.removeAttribute('aria-activedescendant');subActive=-1}
+function markActive(scroll){
+  [...subList.children].forEach((li,i)=>{const a=i===subActive;li.classList.toggle('act',a);if(li.id)li.setAttribute('aria-selected',String(a))});
+  const li=subActive>=0?subList.children[subActive]:null;
+  if(li){subInput.setAttribute('aria-activedescendant',li.id);if(scroll)li.scrollIntoView({block:'nearest'})}else subInput.removeAttribute('aria-activedescendant');
+}
+function addSuburb(name){
+  if(!state.suburbs.includes(name))state.suburbs=[...state.suburbs,name];
+  subInput.value='';renderTags();openList();run();
+}
+function removeSuburb(name){state.suburbs=state.suburbs.filter(n=>n!==name);renderTags();if(!subList.hidden)openList();run()}
+subInput.addEventListener('focus',openList);
+subInput.addEventListener('input',openList);
+subInput.addEventListener('blur',closeList);
+subInput.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){e.preventDefault();if(subList.hidden){openList();return}if(subShown.length){subActive=Math.min(subActive+1,subShown.length-1);markActive(true)}}
+  else if(e.key==='ArrowUp'){e.preventDefault();if(subShown.length){subActive=Math.max(subActive-1,0);markActive(true)}}
+  else if(e.key==='Enter'){e.preventDefault();if(!subList.hidden&&subActive>=0&&subShown[subActive])addSuburb(subShown[subActive].name)}
+  else if(e.key==='Escape'){if(!subList.hidden){e.preventDefault();e.stopPropagation();closeList()}}
+  else if(e.key==='Backspace'&&subInput.value===''&&state.suburbs.length){e.preventDefault();removeSuburb(state.suburbs[state.suburbs.length-1])}
+});
+$('#sub-box').addEventListener('mousedown',e=>{if(e.target===e.currentTarget){e.preventDefault();subInput.focus()}});
+
+/* other inputs */
+let typeTimer=null;
+function debounced(){clearTimeout(typeTimer);typeTimer=setTimeout(run,250)}
+$('#type').addEventListener('change',e=>{state.type=e.target.value;run()});
+COUNTS.forEach(k=>{
+  $('#'+k).addEventListener('change',e=>{state[k]=e.target.value;run()});
+  $('#'+k+'_mode').addEventListener('change',e=>{state[k+'_mode']=e.target.value;if(state[k]!=='')run();else syncUrl()});
+});
+NUMS.forEach(k=>$('#'+k).addEventListener('input',e=>{state[k]=e.target.value.trim();debounced()}));
+$('#months').addEventListener('change',e=>{state.months=e.target.value;run()});
+$('#include_undated').addEventListener('change',e=>{state.include_undated=e.target.checked;run()});
+
+/* ---------- querying ---------- */
+let seq=0,lastResult=null;
+function syncUrl(){
+  const qs=toParams(state).toString();
+  if(view==='sold')history.replaceState(null,'',location.pathname+(qs?'?'+qs:''));
+  else if(view==='forsale')history.replaceState(null,'',location.pathname+'?'+fsParams());
+  else if(view==='market')history.replaceState(null,'',location.pathname+'?'+marketParams());
+  return qs;
+}
+async function getJSON(url){
+  const r=await api(url,{cache:'no-store'});
+  let body=null;try{body=await r.json()}catch(e){}
+  if(!r.ok||!body||body.error)throw new Error(body&&body.error?body.error:'The server answered '+r.status);
+  return body;
+}
+let lastSoldQs=null;
+function run(){
+  if(view==='market')return runMarket();
+  if(view==='forsale')return runForsale();   // the filter bar is shared: it drives whichever list is showing
+  clearTimeout(typeTimer);
+  soldStarted=true;
+  const qs=syncUrl();lastSoldQs=qs;
+  const my=++seq;
+  document.body.classList.add('busy');
+  getJSON('/api/query'+(qs?'?'+qs:'')).then(j=>{
+    if(my!==seq)return;
+    document.body.classList.remove('busy');
+    lastResult=j;render(j);
+  },err=>{
+    if(my!==seq)return;
+    document.body.classList.remove('busy');
+    showError(friendly(err));
+  });
+}
+function showError(msg){
+  const note=$('#note');note.replaceChildren(el('span','errline',msg));
+}
+
+/* ---------- rendering ---------- */
+function describe(f,noDate){
+  const p=[];
+  p.push(f.suburbs&&f.suburbs.length?f.suburbs.join(', '):'All suburbs');
+  p.push(f.property_type?(TYPE_PLURAL[f.property_type]||f.property_type):'All types');
+  [['beds','bed'],['baths','bath'],['cars','car']].forEach(([k,w])=>{if(f[k]!=null)p.push(f[k]+(f[k+'_mode']==='min'?'+':'')+' '+w)});
+  const range=(lo,hi,fmt,tail)=>lo!=null&&hi!=null?fmt(lo)+'–'+fmt(hi)+tail:lo!=null?fmt(lo)+'+'+tail:hi!=null?'up to '+fmt(hi)+tail:null;
+  const n=v=>Math.round(v).toLocaleString('en-AU');
+  [range(f.land_min,f.land_max,n,' m² land'),range(f.building_min,f.building_max,n,' m² building'),range(f.price_min,f.price_max,aud,'')].forEach(x=>{if(x)p.push(x)});
+  const labels=Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label]));
+  (f.features||[]).forEach(x=>p.push(labels[x]||x.replace(/_/g,' ')));
+  if(f.yard)p.push(f.yard+' yard');
+  if(!noDate){p.push(f.months!=null?(f.months===36?'last 3 years':'last '+f.months+' months'):'any date');
+  if(f.include_undated)p.push('undated included')}
+  return p.join(' · ');
+}
+function render(j){
+  const s=j.summary,empty=!!meta&&meta.total_sales===0,matched=j.sales.length;
+  const basis=$('#basis');basis.className='';
+  if(empty){$('#median').textContent='no data yet';basis.textContent='Run: python -m soldradar collect';basis.className='cmd'}
+  else if(s.median!=null){$('#median').textContent=aud(s.median);basis.textContent='Median of '+s.count_priced.toLocaleString('en-AU')+' '+plural(s.count_priced,'sale')}
+  else if(matched){$('#median').textContent='no prices';basis.textContent=matched+' '+plural(matched,'sale')+' matched but none had a usable price'}
+  else{$('#median').textContent='no sales';basis.textContent='Nothing matches these filters'}
+  $('#summary').textContent=describe(j.filters);
+  $('#typ').textContent=s.p25!=null&&s.p75!=null?short(s.p25)+' – '+short(s.p75):'—';
+  $('#lo').textContent=s.low!=null?aud(s.low):'—';
+  $('#hi').textContent=s.high!=null?aud(s.high):'—';
+  $('#pm').textContent=s.per_m2!=null?aud(s.per_m2):'—';
+  renderNote(j,empty);
+  $('#readout').textContent=empty?'':(j.readout||'');
+  $('#sec-lab').textContent='Matching sales'+(matched?' · '+matched.toLocaleString('en-AU'):'');
+  renderList(j.sales,j.filters,empty);
+}
+function renderNote(j,empty){
+  const s=j.summary,note=$('#note');note.replaceChildren();
+  if(empty)return;
+  if(s.few&&(s.count_priced>0||j.loosen)){
+    const w=el('span','warnline',s.count_priced?'Only '+s.count_priced+' '+plural(s.count_priced,'sale')+' — too few to trust. ':'No priced sales match. ');
+    if(loosenChange(j.loosen)){
+      const b=el('button','loosen','Try '+j.loosen.label);b.type='button';
+      b.onclick=()=>applyLoosen(j.loosen);
+      w.append(b,document.createTextNode(' — '+j.loosen.count_priced.toLocaleString('en-AU')+' '+plural(j.loosen.count_priced,'sale')));
+    }else w.append(document.createTextNode('Loosen a filter.'));
+    note.append(w,el('br'),el('br'));
+  }
+  if(s.count_unpriced)note.append(document.createTextNode(s.count_unpriced.toLocaleString('en-AU')+' more matched but the price was withheld or unconfirmed'));
+  else if(s.count_priced)note.append(document.createTextNode('Every matching sale has a price'));
+}
+/* loosen.change from the API: query parameters to apply as given. */
+const SCALAR_KEYS=new Set(['type','beds','beds_mode','baths','baths_mode','cars','cars_mode',...NUMS,'months','yard','include_undated']);
+function loosenChange(l){
+  const c=l&&l.change;
+  if(!c||typeof c!=='object'||Array.isArray(c)||!Object.keys(c).length)return null;
+  const ok=Object.keys(c).every(k=>k==='suburb'||k==='remove_feature'||SCALAR_KEYS.has(k));
+  return ok?c:null;
+}
+function applyLoosen(l){
+  const c=loosenChange(l);
+  if(!c)return;
+  for(const [k,v] of Object.entries(c)){
+    if(k==='suburb')state.suburbs=Array.isArray(v)?v.map(String):(v==null?[]:[String(v)]);
+    else if(k==='remove_feature')state.features=state.features.filter(n=>n!==v);
+    else if(k==='include_undated')state.include_undated=!!v;
+    else if(k==='months')state.months=v==null?'all':String(v);
+    else if(k==='type')state.type=v==null?'any':String(v);
+    else state[k]=v==null?'':String(v);
+  }
+  syncControls();run();
+}
+function street(sale){
+  const a=sale.address||'',parts=a.split(',');
+  if(parts.length>1){
+    const tail=parts.slice(1).join(',').toLowerCase();
+    if(/\bqld\b|\bqueensland\b/.test(tail)||(sale.suburb&&tail.includes(sale.suburb.toLowerCase())))return parts[0].trim();
+  }
+  return a;
+}
+let pendingRows=[],rowCtx=null;
+function renderList(sales,filters,empty){
+  const list=$('#list');list.replaceChildren();
+  if(!sales.length){const r=el('div','row');r.append(el('div','a f24 muted',empty?'No sales collected yet':'No sales match'));list.append(r);return}
+  rowCtx={anyType:filters.property_type==null,labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)};
+  pendingRows=sales.slice();
+  appendRows();
+}
+function appendRows(){
+  const list=$('#list');const old=list.querySelector('.more');if(old)old.remove();
+  const frag=document.createDocumentFragment();
+  pendingRows.splice(0,ROWS_AT_ONCE).forEach(s=>frag.append(rowFor(s)));
+  if(pendingRows.length){
+    const b=el('button','more f12','Show '+Math.min(ROWS_AT_ONCE,pendingRows.length).toLocaleString('en-AU')+' more · '+pendingRows.length.toLocaleString('en-AU')+' not shown yet');b.type='button';
+    b.onclick=()=>{const first=pendingRows[0];appendRows();const r=list.querySelector(`[data-id="${first.sale_id}"]`);if(r)r.focus()};
+    frag.append(b);
+  }
+  list.append(frag);
+}
+function featureNames(f){
+  const names=Object.keys(f||{});
+  return names.sort((a,b)=>{const ia=rowCtx.order.indexOf(a),ib=rowCtx.order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)}).map(n=>rowCtx.labels[n]||n.replace(/_/g,' '));
+}
+function rowFor(s){
+  const counted=s.price!=null&&['shown','hidden','rounded'].includes(s.price_status);
+  const r=el('a','row'+(counted?'':' np'));r.href='#';r.dataset.id=s.sale_id;
+  r.onclick=e=>{e.preventDefault();openSale(s.sale_id)};
+  const d=el('div','d f12 muted',s.sold_date?fmtD(s.sold_date):'Date unknown');
+  if(s.sold_date&&APPROX.has(s.date_precision))d.append(el('span','flag',' · Date approximate'));
+  const a=el('div','a');a.append(el('div','f24',street(s)),el('small',null,[s.suburb,s.agency].filter(Boolean).join(' · ')));
+  const sz=el('div','s f12');
+  const counts=[[s.beds,'bed'],[s.baths,'bath'],[s.cars,'car']].filter(x=>x[0]!=null).map(x=>x[0]+' '+x[1]);
+  if(rowCtx.anyType&&s.property_type)counts.unshift(TYPE_LABEL[s.property_type]||s.property_type);
+  sz.append(document.createTextNode(counts.join(' · ')));
+  const land=[s.land_m2?area(s.land_m2):null,s.yard?s.yard+' yard':null].filter(Boolean).join(' · ');
+  if(land){if(counts.length)sz.append(el('br'));sz.append(el('span','muted',land))}
+  const f=el('div','f f12 muted',featureNames(s.features).join(' · '));
+  const p=el('div','p');
+  if(s.price!=null&&s.price_status!=='withheld')p.append(el('div','f24',aud(s.price)));else p.append(el('div','f24','Withheld'));
+  if(PRICE_FLAG[s.price_status]&&s.price!=null)p.append(el('small','flag',PRICE_FLAG[s.price_status]));
+  else if(!counted)p.append(el('small',null,'Left out of the figures'));
+  else if(s.price_status==='shown'&&s.per_m2!=null)p.append(el('small',null,aud(s.per_m2)+' per m²'));
+  r.append(d,a,sz,f,p);
+  return r;
+}
+
+/* ---------- overlays ---------- */
+const PAGE_PARTS=['#hdr','#main','#ftr','#ftr-est','#ftr-fs','#ftr-host'];
+let openOv=null,returnTo=null;
+function showOverlay(ov,back){
+  if(openOv&&openOv!==ov)openOv.hidden=true;
+  returnTo=back;openOv=ov;ov.hidden=false;ov.scrollTop=0;
+  PAGE_PARTS.forEach(s=>$(s).inert=true);
+  document.documentElement.style.overflow='hidden';
+  ov.querySelector('.close').focus();
+}
+function closeOverlay(){
+  if(!openOv)return;
+  openOv.hidden=true;openOv=null;saleSeq++;
+  PAGE_PARTS.forEach(s=>$(s).inert=false);
+  document.documentElement.style.overflow='';
+  let t=returnTo;
+  if(t&&t.saleId!=null)t=$(`#list [data-id="${t.saleId}"]`)||$('#list a.row')||$('#median');
+  if(t&&t.isConnected)t.focus({preventScroll:false});
+  returnTo=null;
+}
+document.querySelectorAll('.ov .close').forEach(b=>b.onclick=closeOverlay);
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&openOv){e.preventDefault();closeOverlay()}});
+
+function kv(key,value,flag){
+  const row=el('div','kv f12');row.append(el('span',null,key));
+  const v=el('span');
+  if(value instanceof Node)v.append(value);else v.textContent=value;
+  if(flag)v.append(el('span','flag',' · '+flag));
+  row.append(v);return row;
+}
+function kvGroup(title,rows){
+  const g=el('div','kvs');g.append(el('h3','t f12',title));rows.forEach(r=>g.append(r));return g;
+}
+
+let saleSeq=0;
+function openSale(id,back){
+  const body=$('#sale-body');
+  body.replaceChildren(loadingBlock('sale-h','Loading'));
+  showOverlay($('#ov-sale'),back||{saleId:id});
+  const my=++saleSeq;
+  const prof=getJSON('/api/profile/'+encodeURIComponent(id)).catch(()=>null);
+  getJSON('/api/sale/'+encodeURIComponent(id)).then(s=>{
+    if(my!==saleSeq)return;
+    renderSale(s);
+    prof.then(p=>{if(my===saleSeq&&p)body.append(profileSect(p.groups,p.not_measured))});
+  },err=>{
+    if(my!==saleSeq)return;
+    body.replaceChildren(loadingBlock('sale-h','Not found'));
+    body.append(errorBlock(err.message));
+  });
+}
+function loadingBlock(hid,text){
+  const g=el('div','grid page-h');const h=el('h2','f90 muted',text);h.id=hid;g.append(h);return g;
+}
+function errorBlock(msg){
+  const g=el('div','grid sect');g.append(el('div','lab f12','Error'));const b=el('div','body f12 errline',msg);g.append(b);return g;
+}
+function renderSale(s){
+  const body=$('#sale-body');body.replaceChildren();
+  const counted=s.price!=null&&['shown','hidden','rounded'].includes(s.price_status);
+  // heading: the price
+  const head=el('div','grid page-h');
+  const h=el('h2','f90'+(counted?'':' muted'),s.price!=null&&s.price_status!=='withheld'?aud(s.price):'Withheld');h.id='sale-h';
+  const sub=el('div','sub f12');
+  sub.append(el('p',null,s.sold_date?'Sold '+fmtD(s.sold_date)+(APPROX.has(s.date_precision)?' · date approximate':''):'Sale date unknown'));
+  const flags=[PRICE_FLAG[s.price_status]&&s.price!=null?PRICE_FLAG[s.price_status]:null,counted?null:'Left out of the figures'].filter(Boolean);
+  sub.append(el('p','muted',flags.length?flags.join(' · '):'Counted in the figures'));
+  if(s.address&&s.suburb&&!HOSTED){
+    const go=el('button','go inl f12','Estimate this home today');go.type='button';
+    go.onclick=()=>{closeOverlay();estimateHome(street(s),s.suburb)};
+    const p=el('p');p.append(go);sub.append(p);
+  }
+  if(s.sale_id!=null){
+    const key='sale:'+s.sale_id,label=street(s)||'this home';
+    const hp=el('button','go inl f12','Home page');hp.type='button';hp.onclick=()=>{closeOverlay();goHome(key)};
+    const p=el('p');p.append(hp);
+    const sb=el('button','go inl f12','☆ Star this home');sb.type='button';sb.hidden=true;sb.style.marginLeft='8px';
+    const paint=on=>{sb.setAttribute('aria-pressed',String(on));sb.textContent=on?'★ Starred':'☆ Star this home'};
+    sb.onclick=()=>toggleStar(key,sb.getAttribute('aria-pressed')!=='true',paint,sb);
+    const mine=saleSeq;
+    getJSON('/api/home/'+encodeURIComponent(key)).then(j=>{if(mine===saleSeq){paint(!!j.starred);sb.hidden=false}},()=>{});
+    p.append(sb);sub.append(p);
+  }
+  head.append(h,sub);body.append(head);
+
+  const sect=el('div','grid sect');sect.append(el('div','lab f12','The sale'));
+  const main=el('div','body');
+  main.append(el('h3','f40 addr',s.address||'Address unknown'));
+  main.append(el('div','f12 muted',[s.suburb,s.postcode,TYPE_LABEL[s.property_type]||s.property_type,s.agency].filter(Boolean).join(' · ')));
+  const cols=el('div','cols');
+  const left=el('div');
+  if(isWeb(s.photo_url)){
+    const fig=el('figure','photo');const img=new Image();
+    img.referrerPolicy='no-referrer';img.loading='lazy';img.decoding='async';
+    img.alt='Photo of '+(s.address||'the property');
+    img.onerror=()=>fig.remove();
+    img.src=s.photo_url;fig.append(img);left.append(fig);
+  }
+  if(s.headline)left.append(el('h4','f24 headline',s.headline));
+  if(s.description)left.append(el('p','desc',s.description));
+  else left.append(el('p','desc muted','No description was published.'));
+  const right=el('div');
+  const num=v=>v==null?'—':String(v);
+  right.append(kvGroup('The property',[
+    kv('Sold',s.sold_date?fmtD(s.sold_date):'Unknown',s.sold_date&&APPROX.has(s.date_precision)?'Date approximate':null),
+    kv('Beds',num(s.beds)),kv('Baths',num(s.baths)),kv('Car spaces',num(s.cars)),
+    kv('Land',s.land_m2?area(s.land_m2):'—'),
+    ...(s.per_m2!=null?[kv('Price per m² of land',aud(s.per_m2))]:[]),
+    kv('Building',s.building_m2?area(s.building_m2):'—'),
+    kv('Yard',s.yard?s.yard:'—'),
+    kv('First seen',s.first_seen?fmtD(s.first_seen):'—'),
+  ]));
+  const labels=Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label]));
+  const order=(meta?meta.features:[]).map(x=>x.name);
+  const feats=Object.entries(s.features||{}).sort((a,b)=>{const ia=order.indexOf(a[0]),ib=order.indexOf(b[0]);return (ia<0?99:ia)-(ib<0?99:ib)});
+  right.append(kvGroup('Features',feats.length?feats.map(([n,o])=>kv(labels[n]||n.replace(/_/g,' '),ORIGIN[o]||String(o))):[kv('None found','—')]));
+  right.append(kvGroup('Sources',(s.sources||[]).map(src=>{
+    let v;
+    if(isWeb(src.url)){v=el('a',null,'Open listing ↗');v.href=src.url;v.target='_blank';v.rel='noopener noreferrer'}
+    else v=document.createTextNode('No link');
+    return kv(src.agency||src.source||'Source',v);
+  })));
+  cols.append(left,right);main.append(cols);sect.append(main);body.append(sect);
+}
+
+const sourceName=x=>x.agency||String(x.source).replace(/-/g,' ');
+const STATUS_WORD={ok:'Read',failed:'Failed',never:'Never read'};
+function renderSources(){
+  const body=$('#sources-body');body.replaceChildren();
+  const cov=(meta&&meta.coverage)||[],c=meta&&meta.counts;
+  const head=el('div','grid page-h');const h=el('h2','f90','Sources');h.id='sources-h';
+  const sub=el('div','sub f12');
+  if(meta&&meta.last_collected&&c){
+    sub.append(el('p',null,'Last collected '+fmtRunLong(meta.last_collected)),
+      el('p','muted',c.ok+' of '+c.total+' read · '+c.failed+' failed · '+c.never+' never read'));
+  }else sub.append(el('p',null,'No collection run has finished yet'),el('p','muted cmd','Run: python -m soldradar collect'));
+  head.append(h,sub);body.append(head);
+  body.append(el('div','sec-lab f12','Each source, as of its latest attempt'));
+  const list=el('div','list');
+  cov.forEach(x=>{
+    const r=el('div','row src'+(x.status==='failed'?' bad':x.status==='never'?' never':''));
+    const d=el('div','d f12'+(x.status==='ok'?' okd':''),STATUS_WORD[x.status]||String(x.status));
+    const a=el('div','a');a.append(el('div','f24',sourceName(x)));
+    a.append(el('small',null,x.last_ok_at?'Last read '+fmtRunLong(x.last_ok_at):'Never read in full'));
+    if(x.status==='failed'&&x.last_attempt_at)a.append(el('small',null,'Last attempt '+fmtRunLong(x.last_attempt_at)));
+    if(x.error)a.append(el('small',null,x.error));
+    const p=el('div','p');p.append(el('div','f24',(x.rows||0).toLocaleString('en-AU')),el('small',null,plural(x.rows||0,'row')+' stored'));
+    r.append(d,a,p);
+    list.append(r);
+  });
+  if(!cov.length){const r=el('div','row');r.append(el('div','a f24 muted','Nothing to show yet'));list.append(r)}
+  body.append(list);
+}
+$('#open-sources').onclick=e=>{
+  renderSources();showOverlay($('#ov-sources'),e.currentTarget);
+  getJSON('/api/meta').then(m=>{meta=m;renderRunInfo();if(openOv===$('#ov-sources'))renderSources()},()=>{});
+};
+
+/* ---------- header actions ---------- */
+$('#search').onclick=()=>{subInput.focus({preventScroll:true});$('#filters').scrollIntoView({block:'start',behavior:'smooth'})};
+document.querySelectorAll('.home').forEach(a=>a.onclick=e=>{e.preventDefault();scrollTo({top:0,behavior:'smooth'})});
+$('#theme').onclick=()=>{
+  const r=document.documentElement,t=r.dataset.theme==='dark'?'light':'dark';r.dataset.theme=t;
+  try{localStorage.setItem('sold-radar-theme',t)}catch(e){}
+};
+let copyTimer=null;
+function copyLabel(text){$('#copy').querySelectorAll('.roll span').forEach(s=>s.textContent=text)}
+async function writeClipboard(text){
+  if(navigator.clipboard&&window.isSecureContext){try{await navigator.clipboard.writeText(text);return}catch(e){}}
+  const ta=el('textarea');ta.value=text;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;top:0;left:0;opacity:0';
+  document.body.append(ta);ta.select();const ok=document.execCommand('copy');ta.remove();
+  if(!ok)throw new Error('The browser would not allow copying');
+}
+$('#copy').onclick=async()=>{
+  clearTimeout(copyTimer);
+  try{
+    const qs=toParams(state).toString();
+    const r=await api('/api/copy'+(qs?'?'+qs:''),{cache:'no-store'});
+    const text=await r.text();
+    if(!r.ok){let m='The server answered '+r.status;try{m=JSON.parse(text).error||m}catch(e){}throw new Error(m)}
+    await writeClipboard(text);
+    copyLabel('Copied');
+  }catch(e){
+    copyLabel('Copy failed');showError('Copy failed: '+(e.message==='Failed to fetch'?'could not reach the server':e.message));
+  }
+  copyTimer=setTimeout(()=>copyLabel('Copy for an assistant'),2000);
+};
+
+/* ---------- the Estimate view ----------
+   Every figure, label and sentence comes from /api/lookup and /api/estimate; the page only places them. */
+const E_COUNTS=['beds','baths','cars'],E_SIZES=['land','building'],E_TYPED=['type',...E_COUNTS,...E_SIZES];
+const NOT_MEASURED_NOTE='Not measured: interior condition and finish';
+const LABEL_NOTE={'estimate':'Estimate','estimate (not yet tested)':'Estimate · Accuracy not yet tested',
+  'comparable sales':'Comparable sales only · no estimate given'};
+const WORKING='Working out the comparable sales…';
+let est={address:'',suburb:'',typed:{},features:null};
+let estLast=null,estSeq=0,lookSeq=0,estTimer=null,waitTimer=null;
+const fmtMon=iso=>{const m=/^(\d{4})-(\d{2})/.exec(iso||'');return m?MON[+m[2]-1]+' '+m[1]:String(iso)};
+const pct=v=>Math.round(v*100)+'%';
+const friendly=err=>err.message==='Failed to fetch'?(HOSTED?'Could not reach the server. Check your connection and try again.':'Could not reach the server. Is python -m soldradar serve still running?'):err.message;
+
+function estToParams(){
+  const p=new URLSearchParams();p.set('view','estimate');
+  if(est.address)p.set('address',est.address);
+  if(est.suburb)p.set('suburb',est.suburb);
+  E_TYPED.forEach(k=>{if(est.typed[k]!=null&&est.typed[k]!=='')p.set(k,est.typed[k])});
+  if(est.features)(est.features.length?est.features:['']).forEach(f=>p.append('feature',f));
+  return p;
+}
+function estFromParams(p){
+  const s={address:(p.get('address')||'').trim(),suburb:(p.get('suburb')||'').trim(),typed:{},features:null};
+  const t=(p.get('type')||'').trim();if(t)s.typed.type=t;
+  E_COUNTS.forEach(k=>{const v=(p.get(k)||'').trim();if(/^\d+$/.test(v))s.typed[k]=v});
+  E_SIZES.forEach(k=>{const v=(p.get(k)||'').trim();if(v!==''&&isFinite(+v))s.typed[k]=v});
+  if(p.has('feature'))s.features=[...new Set(p.getAll('feature').map(x=>x.trim()).filter(Boolean))];
+  return s;
+}
+function syncEstUrl(){if(view==='estimate')history.replaceState(null,'',location.pathname+'?'+estToParams())}
+
+/* the details form: what the owner typed, else what the last answer says (with its origin) */
+function fillEstSelect(id,from,to){const sel=$('#'+id);sel.replaceChildren(new Option('Not known',''));for(let i=from;i<=to;i++)sel.append(new Option(String(i),String(i)))}
+fillEstSelect('e-beds',1,8);fillEstSelect('e-baths',1,6);fillEstSelect('e-cars',0,6);
+Object.keys(TYPE_LABEL).forEach(t=>$('#e-type').append(new Option(TYPE_LABEL[t],t)));
+
+function renderEstForm(){
+  const a=$('#e-address');if(document.activeElement!==a)a.value=est.address;
+  if(document.activeElement!==eSubIn)eSubIn.value=est.suburb;
+  const subj=estLast&&estLast.subject;
+  const known=k=>subj&&subj[k]&&subj[k].value!=null;
+  const show=v=>typeof v==='number'&&!Number.isInteger(v)?String(Math.round(v*10)/10):String(v);  // a lot area to 0.1 m², as the profile shows it
+  const shown=k=>est.typed[k]!==undefined?String(est.typed[k]):known(k)?show(subj[k].value):'';
+  const origin=k=>est.typed[k]!==undefined?'you entered':known(k)?subj[k].origin:'';
+  const tv=shown('type')||'house',ts=$('#e-type');
+  ensureOption(ts,tv,TYPE_LABEL[tv]||tv);ts.value=tv;
+  E_COUNTS.forEach(k=>{const sel=$('#e-'+k),v=shown(k);ensureOption(sel,v,v);sel.value=v});
+  E_SIZES.forEach(k=>{const inp=$('#e-'+k);if(document.activeElement!==inp)inp.value=shown(k)});
+  const typedF=est.features!==null;
+  const feats=typedF?est.features:(subj&&subj.features&&Array.isArray(subj.features.value)?subj.features.value:[]);
+  renderEstChips(feats);
+  const fo=typedF?'you entered':subj&&subj.features&&subj.features.origin!=='not known'?subj.features.origin:'';
+  renderOrigins([...E_TYPED.map(k=>[k,origin(k)]),['features',fo]]);
+}
+/* where each pre-filled value came from, one line per origin: "Beds · Baths — from the last sale (Nov 2026)" */
+const FIELD_LABEL={type:'Type',beds:'Beds',baths:'Baths',cars:'Car spaces',land:'Land',building:'Building',features:'Features'};
+function renderOrigins(pairs){
+  const by=new Map();
+  pairs.forEach(([k,o])=>{if(o){if(!by.has(o))by.set(o,[]);by.get(o).push(FIELD_LABEL[k])}});
+  const box=$('#o-all');box.replaceChildren();
+  [...by].forEach(([o,names],i)=>{if(i)box.append(el('br'));box.append(document.createTextNode(names.join(' · ')+' — '+o))});
+}
+function renderEstChips(on){
+  const box=$('#e-chips');box.replaceChildren();
+  if(!meta)return;
+  const known=new Set(meta.features.map(f=>f.name));
+  [...meta.features,...on.filter(n=>!known.has(n)).map(n=>({name:n,label:n.replace(/_/g,' ')}))].forEach(f=>{
+    const isOn=on.includes(f.name);
+    const b=el('button','chip'+(isOn?' on':''),f.label);b.type='button';b.setAttribute('aria-pressed',String(isOn));b.dataset.key=f.name;
+    b.onclick=()=>{
+      est.features=isOn?on.filter(n=>n!==f.name):[...on,f.name];
+      renderEstForm();const nb=box.querySelector(`[data-key="${CSS.escape(f.name)}"]`);if(nb)nb.focus();
+      runEstimate();
+    };
+    box.append(b);
+  });
+}
+$('#e-type').addEventListener('change',e=>{est.typed.type=e.target.value;renderEstForm();runEstimate()});
+E_COUNTS.forEach(k=>$('#e-'+k).addEventListener('change',e=>{
+  const v=e.target.value;if(v==='')delete est.typed[k];else est.typed[k]=v;renderEstForm();runEstimate();
+}));
+E_SIZES.forEach(k=>{
+  const inp=$('#e-'+k);
+  inp.addEventListener('input',()=>{
+    const v=inp.value.trim();if(v==='')delete est.typed[k];else est.typed[k]=v;
+    renderEstForm();
+    clearTimeout(estTimer);estTimer=setTimeout(runEstimate,450);
+  });
+  inp.addEventListener('change',renderEstForm);
+});
+
+/* suburb: the same picker as the Sold view, single choice */
+const eSubIn=$('#e-sub-input'),eSubList=$('#e-sub-list');
+let eShown=[],eAct=-1;
+function eOpen(){
+  if(!meta)return;
+  const q=eSubIn.value.trim().toLowerCase();
+  const exact=meta.suburbs.findIndex(s=>s.name.toLowerCase()===q);
+  eShown=exact>=0?meta.suburbs.slice():meta.suburbs.filter(s=>s.name.toLowerCase().includes(q));
+  if(q&&exact<0)eShown.sort((a,b)=>(b.name.toLowerCase().startsWith(q))-(a.name.toLowerCase().startsWith(q)));
+  eAct=exact>=0?exact:(q&&eShown.length?0:-1);
+  eSubList.replaceChildren();
+  if(!eShown.length)eSubList.append(el('li','none f12',meta.suburbs.length?'No suburb matches':'No suburbs yet'));
+  eShown.forEach((s,i)=>{
+    const li=el('li');li.id='e-sub-opt-'+i;li.setAttribute('role','option');
+    li.append(el('span',null,s.name),el('span','n f12',s.count.toLocaleString('en-AU')+' '+plural(s.count,'sale')));
+    li.addEventListener('mousedown',e=>e.preventDefault());
+    li.onclick=()=>ePick(s.name);
+    li.onmousemove=()=>{if(eAct!==i){eAct=i;eMark(false)}};
+    eSubList.append(li);
+  });
+  eSubList.hidden=false;eSubIn.setAttribute('aria-expanded','true');
+  eMark(true);
+}
+function eClose(){eSubList.hidden=true;eSubIn.setAttribute('aria-expanded','false');eSubIn.removeAttribute('aria-activedescendant');eAct=-1}
+function eMark(scroll){
+  [...eSubList.children].forEach((li,i)=>{const a=i===eAct;li.classList.toggle('act',a);if(li.id)li.setAttribute('aria-selected',String(a))});
+  const li=eAct>=0?eSubList.children[eAct]:null;
+  if(li){eSubIn.setAttribute('aria-activedescendant',li.id);if(scroll)li.scrollIntoView({block:'nearest'})}else eSubIn.removeAttribute('aria-activedescendant');
+}
+function ePick(name){eSubIn.value=name;eClose()}
+function chosenSuburb(){
+  const v=eSubIn.value.trim().replace(/\s+/g,' ');
+  if(!v||!meta)return v;
+  const m=meta.suburbs.find(s=>s.name.toLowerCase()===v.toLowerCase());
+  return m?m.name:null;
+}
+eSubIn.addEventListener('focus',()=>{eSubIn.select();eOpen()});
+eSubIn.addEventListener('input',eOpen);
+eSubIn.addEventListener('blur',()=>{eClose();const m=chosenSuburb();if(m)eSubIn.value=m});
+eSubIn.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'){e.preventDefault();if(eSubList.hidden){eOpen();return}if(eShown.length){eAct=Math.min(eAct+1,eShown.length-1);eMark(true)}}
+  else if(e.key==='ArrowUp'){e.preventDefault();if(eShown.length){eAct=Math.max(eAct-1,0);eMark(true)}}
+  else if(e.key==='Enter'){if(!eSubList.hidden&&eAct>=0&&eShown[eAct]){e.preventDefault();ePick(eShown[eAct].name)}}
+  else if(e.key==='Escape'){if(!eSubList.hidden){e.preventDefault();e.stopPropagation();eClose()}}
+});
+
+/* the result */
+function setHead(text,kind){
+  const h=$('#est-h');h.textContent=text;
+  h.className=kind==='say'?'f90 say':kind==='wait'?'f90 say wait':kind==='idle'?'f90 wait':'f90';
+  $('#est-live').textContent=text;
+}
+function setPlace(address,suburb){$('#est-addr').textContent=[address,suburb].filter(Boolean).join(', ')}
+function clearEstResult(){
+  $('#est-mid').replaceChildren();$('#est-warn').replaceChildren();$('#est-label').textContent='';
+  $('#est-res').hidden=true;$('#est-prof-sect').hidden=true;showComps(null);
+}
+function renderEstEmpty(){
+  clearEstResult();setHead('Estimate a home','idle');
+  $('#est-addr').textContent='Type an address, choose its suburb, then Look up';
+  renderBasis(null);
+}
+function showEstFailure(msg){
+  document.body.classList.remove('ebusy');clearTimeout(waitTimer);
+  clearEstResult();setHead(msg,'say');
+}
+function estPending(){
+  clearEstResult();setHead(WORKING,'wait');setPlace(est.address,est.suburb);
+}
+function renderBasis(b){
+  const t=$('#ft-basis');
+  if(!b){t.textContent='No estimate yet';return}
+  const parts=[];
+  if(b.training_sales!=null)parts.push('Based on '+b.training_sales.toLocaleString('en-AU')+' '+plural(b.training_sales,'sale'));
+  if(b.model_fitted_at)parts.push('model fitted '+fmtD(b.model_fitted_at));
+  const bt=b.backtest,err=bt?(bt.quoted!=null?bt.quoted:bt.headline):null;
+  parts.push(err!=null?'tested: typically within '+pct(err)+(bt.within_10!=null?' ('+pct(bt.within_10)+' within 10%)':''):'not yet tested');
+  t.textContent=parts.join(' · ');
+}
+function renderEstimate(j){
+  const ln=j.lines||{},sub=j.subject;
+  clearEstResult();
+  setPlace(sub?sub.address:est.address,sub?sub.suburb:est.suburb);
+  (j.warnings||[]).forEach(w=>$('#est-warn').append(el('p','q warnline',w)));
+  renderBasis(j.basis);
+  if(j.status==='not_ready'||j.status==='out_of_scope'){
+    setHead(j.reason||'No estimate','say');
+    $('#est-label').textContent=j.status==='not_ready'?'The pricing model is not ready':'Outside what this tool estimates';
+    renderEstProfile(j.profile);
+    return;
+  }
+  const mid=$('#est-mid'),compsOnly=j.label==='comparable sales';
+  if(compsOnly){setHead('Comparable sales','fig');if(ln.note)mid.append(el('p','tested',ln.note))}
+  else{
+    setHead(ln.range||'—','fig');
+    if(j.status==='ok'&&ln.middle)mid.append(el('div','f40',ln.middle));
+    else mid.append(el('div','f24 warnline','Low confidence — treat as a rough guide'));
+  }
+  $('#est-label').textContent=LABEL_NOTE[j.label]||j.label||'';
+  $('#est-conf').textContent=ln.confidence||'';
+  $('#est-tested').textContent=ln.tested||'';
+  $('#est-values').textContent=ln.values||'';
+  const notes=$('#est-notes');notes.replaceChildren();
+  if(!compsOnly&&ln.note)notes.append(el('p','q',ln.note));
+  (j.notes||[]).forEach(n=>notes.append(el('p','q',n)));
+  const prior=$('#est-prior'),ps=j.prior_sales||[];prior.replaceChildren();prior.hidden=!ps.length;
+  if(ps.length){
+    prior.append(el('div','f12',ps.length===1?'An earlier sale of this home':'Earlier sales of this home'));
+    ps.forEach(p=>prior.append(el('p',null,'This home sold for '+aud(p.price)+' in '+fmtMon(p.sold_date)+' (≈ '+aud(p.adjusted_price)+' today)')));
+  }
+  $('#est-res').hidden=false;
+  renderEstProfile(j.profile);
+  showComps(j.comps||[]);
+}
+
+/* "This property": one line per measured group, each with its source */
+function profileList(groups,closing){
+  const frag=document.createDocumentFragment(),box=el('div','prof');
+  (groups||[]).forEach(g=>{
+    const measured=g.status==='measured';
+    const r=el('div','pg'+(measured?'':' off'));
+    r.append(el('div','k f12',g.label));
+    const v=el('div','v');v.append(el('span',null,g.summary||'not known'));
+    if(measured)(g.notes||[]).forEach(n=>v.append(el('span','q',n)));
+    if(measured&&g.source&&g.source.label)v.append(el('span','src',g.source.label+(g.source.fetched_at?' · measured '+fmtD(g.source.fetched_at):'')));
+    r.append(v);box.append(r);
+  });
+  frag.append(box,el('p','q prof-end',closing||NOT_MEASURED_NOTE));
+  return frag;
+}
+function profileSect(groups,closing){
+  const g=el('div','grid sect'),lab=el('div','lab f12','This property');
+  lab.append(el('br'),el('span','muted','Measured, with source'));
+  const b=el('div','body');b.append(profileList(groups,closing));g.append(lab,b);return g;
+}
+function renderEstProfile(groups){
+  const sect=$('#est-prof-sect');
+  if(!groups||!groups.length){sect.hidden=true;return}
+  $('#est-prof').replaceChildren(profileList(groups));sect.hidden=false;
+}
+
+/* the comparable sales, in the Sold view's row style, each with its adjustments */
+function showComps(list){compsInto($('#est-comps'),$('#est-comps-lab'),list,'The comparable sales')}
+function compsInto(box,lab,list,title){
+  box.replaceChildren();
+  if(!list){box.hidden=lab.hidden=true;return}
+  lab.textContent=title+(list.length?' · '+list.length:'');
+  box.hidden=lab.hidden=false;
+  if(!list.length){const r=el('div','row');r.append(el('div','a f24 muted','No comparable sales'));box.append(r);return}
+  list.forEach(c=>box.append(compRow(c)));
+}
+function compRow(c){
+  const r=el('a','row cmp');r.href='#';r.dataset.id=c.sale_id;
+  r.onclick=e=>{e.preventDefault();openSale(c.sale_id,r)};
+  const d=el('div','d f12 muted','Sold '+(c.sold_text||fmtD(c.sold_date)));
+  const a=el('div','a');a.append(el('div','f24',street(c)),el('small',null,[c.distance_text,c.suburb].filter(Boolean).join(' · ')));
+  const p=el('div','p');p.append(el('div','f24',aud(c.price)),el('small',null,'Sold price'));
+  const adj=(c.adjustments||[]).map(x=>x.label+' '+x.text).join(' · ');
+  const w=el('div','w');w.append(el('div','adjp','Adjusted '+aud(c.adjusted_price)),el('small',null,'Weight '+c.weight_text));
+  r.append(d,a,p,el('div','adj q',adj||'No adjustments'),w);
+  return r;
+}
+
+/* asking the server */
+function runEstimate(){
+  clearTimeout(estTimer);
+  syncEstUrl();
+  if(!est.suburb)return;
+  const my=++estSeq,qs=estToParams();qs.delete('view');
+  document.body.classList.add('ebusy');
+  clearTimeout(waitTimer);
+  waitTimer=setTimeout(()=>{if(my===estSeq)setHead(WORKING,'wait')},700);
+  getJSON('/api/estimate?'+qs).then(j=>{
+    if(my!==estSeq)return;
+    clearTimeout(waitTimer);document.body.classList.remove('ebusy');
+    estLast=j;renderEstimate(j);renderEstForm();
+  },err=>{if(my===estSeq)showEstFailure(friendly(err))});
+}
+async function lookUp(){
+  const address=$('#e-address').value.trim().replace(/\s+/g,' '),suburb=chosenSuburb();
+  if(!address||!suburb){
+    showEstFailure(!address?'Type the street address first.':suburb===null?'Choose the suburb from the list.':'Choose the suburb.');
+    (!address?$('#e-address'):eSubIn).focus();
+    return;
+  }
+  if(address!==est.address||suburb!==est.suburb){est.typed={};est.features=null;estLast=null}
+  est.address=address;est.suburb=suburb;
+  eSubIn.value=suburb;syncEstUrl();
+  const my=++lookSeq;estSeq++;clearTimeout(estTimer);clearTimeout(waitTimer);document.body.classList.remove('ebusy');
+  clearEstResult();
+  setHead('Measuring this property…','wait');setPlace(address,suburb);
+  $('#est-label').textContent='Looking up what can be measured · this can take up to a minute';
+  $('#est-prof').replaceChildren(el('p','q','Measuring…'));$('#est-prof-sect').hidden=false;
+  renderEstForm();
+  scrollTo({top:0,behavior:'smooth'});
+  let j;
+  try{j=await getJSON('/api/lookup?'+new URLSearchParams({address,suburb}))}
+  catch(err){if(my===lookSeq)showEstFailure(friendly(err));return}
+  if(my!==lookSeq)return;
+  if(!j.found){showEstFailure(j.reason||'That address could not be looked up.');setPlace(address,suburb);return}
+  renderEstProfile(j.profile);
+  runEstimate();
+}
+$('#est-form').addEventListener('submit',e=>{e.preventDefault();lookUp()});
+
+/* the open-data sources behind the profile */
+function renderDataSources(list,error){
+  const body=$('#data-body');body.replaceChildren();
+  const head=el('div','grid page-h');const h=el('h2','f90','Data sources');h.id='data-h';
+  const sub=el('div','sub f12');sub.append(el('p',null,'Open data behind the property profile'),el('p','muted','Each source with its licence and the attribution it asks for'));
+  head.append(h,sub);body.append(head);
+  if(error){body.append(errorBlock(error));return}
+  if(!list){body.append(el('div','sec-lab f12 muted','Loading'));return}
+  const box=el('div','list');
+  list.forEach(x=>{
+    const r=el('div','row dsrc');
+    const d=el('div','d f12 muted',String(x.id).replace(/_/g,' '));
+    const a=el('div','a');a.append(el('div','f24',x.attribution||String(x.id)),el('small',null,x.licence||'Licence not recorded'));
+    const p=el('div','p f12');
+    if(isWeb(x.url)){const l=el('a',null,'Dataset ↗');l.href=x.url;l.target='_blank';l.rel='noopener noreferrer';p.append(l)}
+    r.append(d,a,p);
+    box.append(r);
+  });
+  if(!list.length){const r=el('div','row');r.append(el('div','a f24 muted','No sources listed'));box.append(r)}
+  body.append(box);
+}
+$('#open-data').onclick=e=>{
+  renderDataSources(null);showOverlay($('#ov-data'),e.currentTarget);
+  getJSON('/api/sources').then(j=>{if(openOv===$('#ov-data'))renderDataSources(j.sources||[])},
+    err=>{if(openOv===$('#ov-data'))renderDataSources(null,friendly(err))});
+};
+
+/* ---------- saving things: stars and notes ---------- */
+async function postJSON(url,body,keep){
+  const r=await api(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),keepalive:!!keep});
+  let j=null;try{j=await r.json()}catch(e){}
+  if(!r.ok||!j||j.error)throw new Error(j&&j.error?j.error:'The server answered '+r.status);
+  return j;
+}
+let toastTimer=null;
+function flash(msg){
+  const t=$('#toast');t.textContent=msg;t.hidden=false;
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.hidden=true},3500);
+}
+const SAVE_FAILED="Couldn't save — try again";
+const CANT_REACH="Can't reach the shortlist";   // the server's answer when the shortlist store is down
+/* the star toggles at once and goes back if the server says no; `paint(on)` draws the button */
+async function toggleStar(key,on,paint,btn){
+  if(btn.dataset.busy)return null;
+  btn.dataset.busy='1';paint(on);
+  try{await postJSON('/api/star',{home_key:key,on});return on}
+  catch(e){paint(!on);flash(e.message===CANT_REACH?CANT_REACH:SAVE_FAILED);return !on}
+  finally{delete btn.dataset.busy}
+}
+function paintStar(btn,on,label){
+  btn.classList.toggle('on',on);btn.setAttribute('aria-pressed',String(on));
+  btn.textContent=on?'★':'☆';
+  btn.setAttribute('aria-label',(on?'Remove the star from ':'Star ')+label);
+}
+function starButton(key,on,label,after){
+  const b=el('button','star');b.type='button';paintStar(b,on,label);
+  b.onclick=async()=>{const now=await toggleStar(key,!b.classList.contains('on'),v=>paintStar(b,v,label),b);if(now!==null&&after)after(now)};
+  return b;
+}
+const homeHref=key=>location.pathname+'?'+new URLSearchParams({view:'home',key});
+/* a link that opens the home page in this window (a modified click is left to the browser) */
+function homeLink(key,cls,text){
+  const a=el('a',cls,text);a.href=homeHref(key);
+  a.onclick=e=>{if(e.metaKey||e.ctrlKey||e.shiftKey||e.button)return;e.preventDefault();goHome(key)};
+  return a;
+}
+
+/* ---------- the For sale view ---------- */
+const FS_STATUS=[['all','All'],['under_offer','Under offer'],['dropped','Price dropped']];
+const FS_SORTS=['newest','asking','gap','days'];
+let fs={status:'all',sort:'newest'},fsSeq=0;
+function fsParams(){
+  const p=new URLSearchParams([['view','forsale'],...toParams(state)]);
+  if(fs.status!=='all')p.set('status',fs.status);
+  if(fs.sort!=='newest')p.set('sort',fs.sort);
+  return p;
+}
+function fsFromParams(p){
+  fs={status:FS_STATUS.some(x=>x[0]===p.get('status'))?p.get('status'):'all',sort:FS_SORTS.includes(p.get('sort'))?p.get('sort'):'newest'};
+}
+function syncFsControls(){
+  $('#fs-sort').value=fs.sort;
+  const box=$('#fs-status');box.replaceChildren();
+  FS_STATUS.forEach(([v,label])=>{
+    const on=fs.status===v;
+    const b=el('button','chip'+(on?' on':''),label);b.type='button';b.setAttribute('aria-pressed',String(on));
+    b.onclick=()=>{fs.status=v;syncFsControls();runForsale()};
+    box.append(b);
+  });
+}
+$('#fs-sort').addEventListener('change',e=>{fs.sort=e.target.value;runForsale()});
+
+function stateAsFilters(){
+  const n=k=>state[k]===''?null:+state[k];
+  return {suburbs:state.suburbs,property_type:state.type==='any'?null:state.type,
+    beds:n('beds'),beds_mode:state.beds_mode,baths:n('baths'),baths_mode:state.baths_mode,cars:n('cars'),cars_mode:state.cars_mode,
+    land_min:n('land_min'),land_max:n('land_max'),building_min:n('building_min'),building_max:n('building_max'),
+    price_min:n('price_min'),price_max:n('price_max'),features:state.features,yard:state.yard};
+}
+function runForsale(){
+  clearTimeout(typeTimer);
+  const my=++fsSeq;
+  syncUrl();
+  const qs=fsParams();qs.delete('view');
+  document.body.classList.add('fbusy');
+  getJSON('/api/forsale?'+qs).then(j=>{
+    if(my!==fsSeq)return;
+    document.body.classList.remove('fbusy');
+    renderForsale(j);
+  },err=>{
+    if(my!==fsSeq)return;
+    document.body.classList.remove('fbusy');
+    const r=el('div','row');r.append(el('div','a f24 errline',friendly(err)));
+    $('#fs-list').replaceChildren(r);
+  });
+}
+function renderFsFoot(cov,last){
+  const read=$('#ft-fs-read'),miss=$('#ft-fs-missing');
+  if(!cov||!cov.total){read.textContent='No for-sale run has finished yet';miss.textContent='';$('#ft-fs-run').textContent='—';return}
+  read.textContent='From '+cov.read+' of '+cov.total+' agencies';
+  miss.textContent=cov.missing&&cov.missing.length?'Not read: '+cov.missing.join(', '):'Every agency was read';
+  $('#ft-fs-run').textContent=last&&last.day?fmtD(last.day):'—';
+}
+function renderForsale(j){
+  const n=j.count,none=!j.coverage||!j.coverage.total;
+  $('#fs-count').textContent=n?n.toLocaleString('en-AU')+' '+plural(n,'home'):'no homes';
+  $('#fs-basis').textContent=none?'No for-sale run has finished yet':'For sale or under offer'+(fs.status==='under_offer'?' · under offer only':fs.status==='dropped'?' · price dropped only':'');
+  $('#fs-summary').textContent=describe(stateAsFilters(),true);
+  $('#fs-lab').textContent='Homes for sale'+(n?' · '+n.toLocaleString('en-AU'):'');
+  renderFsFoot(j.coverage,j.last_run);
+  const list=$('#fs-list');list.replaceChildren();
+  if(!j.homes.length){const r=el('div','row');r.append(el('div','a f24 muted',none?'No homes collected yet':'No homes match'));list.append(r);return}
+  rowCtx={anyType:state.type==='any',labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)};
+  const frag=document.createDocumentFragment();
+  j.homes.forEach(h=>frag.append(fsRow(h)));
+  list.append(frag);
+}
+const mil=v=>short(v);
+/* the estimate cell of a row: the figure, its range, and how the asking price compares */
+function fsEstimateCell(h){
+  const e=h.estimate,cell=el('div','e');
+  if(!e){cell.append(el('div','f24 none','No estimate yet'));return cell}
+  if(e.status==='out_of_scope'||e.status==='not_ready'||e.status==='error'){
+    cell.append(el('div','f24 none','No estimate'),el('small',null,e.reason||(e.status==='out_of_scope'?'Outside what this tool estimates':e.status==='not_ready'?'The pricing model is not ready':'The estimate failed')));
+    return cell;
+  }
+  if(e.middle!=null){
+    cell.append(el('div','f24','We estimate '+mil(e.middle)));
+    if(e.low!=null&&e.high!=null)cell.append(el('small',null,mil(e.low)+'–'+mil(e.high)));
+  }else if(e.low!=null&&e.high!=null){
+    cell.append(el('div','f24','We estimate '+mil(e.low)+'–'+mil(e.high)),el('small',null,'Low confidence · a range only'));
+  }else{cell.append(el('div','f24 none','No estimate'),el('small',null,'Comparable sales only'));return cell}
+  const g=h.gap_percent;
+  if(h.asking_price==null)cell.append(el('small',null,'no asking price'));
+  else if(g!=null)cell.append(el('small',g>0?'gap-above':g<0?'gap-below':null,g===0?'at the estimate':Math.abs(g)+'% '+(g>0?'above':'below')));
+  return cell;
+}
+function fsRow(h){
+  const r=el('div','row fs');r.dataset.key=h.home_key;
+  const label=street(h);
+  const ph=el('div','ph'),box=homeLink(h.home_key,'box');box.tabIndex=-1;box.setAttribute('aria-hidden','true');
+  if(isWeb(h.photo_url)){
+    const img=new Image();img.referrerPolicy='no-referrer';img.loading='lazy';img.decoding='async';img.alt='';
+    img.onerror=()=>img.remove();img.src=h.photo_url;box.append(img);
+  }
+  ph.append(box);
+  const a=el('div','a'),t=el('div','f24');t.append(homeLink(h.home_key,null,label));
+  a.append(t);
+  if(h.suburb)a.append(el('small',null,h.suburb));
+  const counts=[[h.beds,'bed'],[h.baths,'bath'],[h.cars,'car']].filter(x=>x[0]!=null).map(x=>x[0]+' '+x[1]);
+  if(h.land_m2)counts.push(area(h.land_m2));
+  if(counts.length)a.append(el('small',null,counts.join(' · ')));
+  const meta2=el('small');
+  if(h.new)meta2.append(el('span','mark','New'));
+  const bits=[];
+  if(h.status==='under_offer')bits.push('Under offer');
+  if(h.days_listed!=null)bits.push(h.days_listed===0?'Listed today':'Listed '+h.days_listed+' '+plural(h.days_listed,'day'));
+  if(bits.length)meta2.append(document.createTextNode((h.new?' · ':'')+bits.join(' · ')));
+  if(h.new||bits.length)a.append(meta2);
+  const m=el('div','m');
+  const ask=h.asking_text||(h.asking_price!=null?aud(h.asking_price):null);
+  m.append(el('div','f24'+(ask?'':' none'),ask||'No asking price'),el('small',null,'Asking'));
+  const st=el('div','st');
+  st.append(starButton(h.home_key,h.starred,label,on=>{h.starred=on}));
+  r.append(ph,a,m,fsEstimateCell(h),st);
+  r.onclick=e=>{if(e.target.closest('a,button'))return;goHome(pk)};
+  return r;
+}
+
+/* ---------- the home page ---------- */
+let homeSeq=0,noteCtl=null;
+const HOME_STATUS={for_sale:'For sale',under_offer:'Under offer',sold:'Sold',gone:'Off the market'};
+function flushNote(){if(noteCtl)noteCtl.save()}
+addEventListener('pagehide',()=>{if(noteCtl)noteCtl.leave()});
+function goHome(key){
+  flushNote();
+  history.pushState(null,'',homeHref(key));
+  setView('home');scrollTo(0,0);loadHome(key);
+}
+function featLabels(f){
+  const labels=Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order=(meta?meta.features:[]).map(x=>x.name);
+  return Object.keys(f||{}).sort((a,b)=>{const ia=order.indexOf(a),ib=order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)}).map(n=>labels[n]||n.replace(/_/g,' '));
+}
+function loadHome(key){
+  const my=++homeSeq;
+  flushNote();noteCtl=null;
+  $('#home-h').textContent='Loading';$('#home-status').textContent='';$('#home-sub').textContent='';
+  $('#home-star').hidden=true;$('#home-body').replaceChildren();
+  getJSON('/api/home/'+encodeURIComponent(key)).then(j=>{if(my===homeSeq)renderHome(key,j)},err=>{
+    if(my!==homeSeq)return;
+    $('#home-h').textContent='Not found';
+    $('#home-body').replaceChildren(errorBlock(friendly(err)));
+  });
+}
+function homeSect(lab,node,sub){
+  const g=el('div','grid sect'),l=el('div','lab f12',lab);
+  if(sub)l.append(el('br'),el('span','muted',sub));
+  const b=el('div','body');b.append(node);g.append(l,b);return g;
+}
+function gapWords(asking,middle){
+  if(!asking)return 'no asking price';
+  if(!middle)return null;
+  const g=Math.round((asking-middle)/middle*100);
+  return g===0?'at the estimate':Math.abs(g)+'% '+(g>0?'above':'below');
+}
+function homeEstimateCell(h,e){
+  const c=el('div');c.append(el('div','f12','What we estimate'));
+  if(!e){c.append(el('div','f24 muted','No estimate yet'));return c}
+  if(e.status==='out_of_scope'||e.status==='not_ready'||e.status==='error'){c.append(el('div','f24 muted','No estimate'),el('p','q',e.reason?'No estimate: '+e.reason:''));return c}
+  const ln=e.lines||{};
+  if(e.middle!=null)c.append(el('div','f40','We estimate '+mil(e.middle)));
+  else if(e.low!=null&&e.high!=null)c.append(el('div','f40','We estimate '+mil(e.low)+'–'+mil(e.high)));
+  else c.append(el('div','f24','Comparable sales only'));
+  const bits=[];
+  if(e.middle!=null&&e.low!=null&&e.high!=null)bits.push(mil(e.low)+'–'+mil(e.high));
+  else if(e.middle==null&&e.low!=null)bits.push('low confidence · a range only');
+  const gw=gapWords(h.asking_figure,e.middle);
+  if(gw)bits.push(gw);
+  if(bits.length)c.append(el('p',gw&&gw.includes('above')?'q warnline':'q',bits.join(' · ')));
+  [ln.confidence,ln.tested,ln.note].filter(Boolean).forEach(t=>c.append(el('p','q',t)));
+  (e.notes||[]).forEach(t=>c.append(el('p','q',t)));
+  (e.warnings||[]).forEach(t=>c.append(el('p','q warnline',t)));
+  return c;
+}
+function noteBox(key,text){
+  const wrap=el('div','notes'),ta=el('textarea');
+  ta.value=text||'';ta.placeholder='Anything worth remembering about this home';ta.setAttribute('aria-label','Your notes');
+  const status=el('div','saved f12 muted');
+  if(text===null){   // the shortlist could not be read: the box stays shut so nothing typed is lost
+    ta.disabled=true;ta.placeholder=CANT_REACH;noteCtl=null;wrap.append(ta,status);return wrap;
+  }
+  let saved=ta.value,timer=null;
+  async function save(){
+    clearTimeout(timer);
+    const v=ta.value;if(v===saved)return;
+    status.className='saved f12 muted';status.textContent='Saving…';
+    try{await postJSON('/api/note',{home_key:key,text:v});saved=v;if(ta.value===v)status.textContent='Saved'}
+    catch(e){status.className='saved f12 errline';status.textContent=SAVE_FAILED}
+  }
+  ta.addEventListener('input',()=>{clearTimeout(timer);status.textContent='';timer=setTimeout(save,1000)});
+  ta.addEventListener('blur',save);
+  /* the page is closing: send the unsaved text so it outlives it (keepalive) */
+  function leave(){const v=ta.value;if(v===saved)return;clearTimeout(timer);postJSON('/api/note',{home_key:key,text:v},true).then(()=>{saved=v},()=>{})}
+  noteCtl={save,leave};
+  wrap.append(ta,status);return wrap;
+}
+function renderHome(key,j){
+  const h=j.home,sold=key.startsWith('sale:'),body=$('#home-body');body.replaceChildren();
+  const where=[street(h),h.suburb].filter(Boolean).join(', ')||'Address unknown';
+  $('#home-h').textContent=where;document.title=where+' · Sold Radar';
+  const si=$('#home-status'),sub=$('#home-sub');
+  if(sold)si.textContent=h.sold_date?'Sold '+fmtD(h.sold_date):'Sold · date unknown';
+  else{
+    const word=HOME_STATUS[h.status]||String(h.status||'').replace(/_/g,' ');
+    si.textContent=word+(h.days_listed!=null&&h.status!=='sold'?' · listed '+h.days_listed+' '+plural(h.days_listed,'day'):'');
+  }
+  sub.textContent=[h.agency,sold?h.postcode:null].filter(Boolean).join(' · ');
+  const sb=$('#home-star'),paint=on=>{sb.setAttribute('aria-pressed',String(on));sb.textContent=on?'★ Starred':'☆ Star this home'};
+  paint(!!j.starred);sb.hidden=false;
+  sb.onclick=()=>toggleStar(key,sb.getAttribute('aria-pressed')!=='true',paint,sb);
+
+  /* the price and the estimate */
+  const pb=el('div','price-blk');
+  const ask=el('div');ask.append(el('div','f12',sold?'Sold for':'Asking'));
+  if(sold){
+    const p=h.price!=null&&h.price_status!=='withheld'?aud(h.price):'Withheld';
+    ask.append(el('div','f40',p));
+    if(PRICE_FLAG[h.price_status]&&h.price!=null)ask.append(el('p','q warnline',PRICE_FLAG[h.price_status]));
+    pb.append(ask);
+    if(h.address&&h.suburb&&!HOSTED){
+      const go=el('button','go inl f12','Estimate this home today');go.type='button';
+      go.onclick=()=>estimateHome(street(h),h.suburb);
+      const c=el('div');c.append(go);pb.append(c);
+    }
+  }else{
+    const t=h.asking_text||(h.asking_price!=null?aud(h.asking_price):null);
+    ask.append(el('div','f40'+(t?'':' muted'),t||'No asking price'));
+    pb.append(ask,homeEstimateCell(h,j.estimate));
+  }
+  body.append(homeSect('The price',pb));
+
+  /* the home itself */
+  const facts=el('div');
+  const counts=[[h.beds,'bed'],[h.baths,'bath'],[h.cars,'car']].filter(x=>x[0]!=null).map(x=>x[0]+' '+x[1]);
+  if(h.land_m2)counts.push(area(h.land_m2));
+  if(h.building_m2)counts.push(area(h.building_m2)+' building');
+  if(h.yard)counts.push(h.yard+' yard');
+  facts.append(el('p','f24 facts',[TYPE_LABEL[h.property_type]||null,...counts].filter(Boolean).join(' · ')||'Details not known'));
+  const fl=featLabels(h.features);
+  if(fl.length)facts.append(el('p','f12 muted facts',fl.join(' · ')));
+  const link=sold?(h.sources||[]).map(s=>s.url).find(isWeb):h.url;
+  if(isWeb(link)){const a=el('a','lnk f12','View the agency listing ↗');a.href=link;a.target='_blank';a.rel='noopener noreferrer';facts.append(a)}
+  body.append(homeSect('The home',facts));
+
+  if(Array.isArray(j.profile)&&j.profile.length)body.append(profileSect(j.profile));
+
+  /* the sales behind the estimate */
+  const comps=j.estimate&&j.estimate.comps;
+  if(comps&&comps.length){
+    const lab=el('div','sec-lab f12'),box=el('div','list');
+    compsInto(box,lab,comps,'Similar recent sales');body.append(lab,box);
+  }
+  /* recent sales in the suburb, any size */
+  const ss=j.suburb_sales||[];
+  if(h.suburb){
+    const lab=el('div','sec-lab f12','Recent sales in '+h.suburb+' · last 3 months, any size'+(ss.length?' · '+ss.length:'')),box=el('div','list');
+    rowCtx={anyType:true,labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)};
+    ss.forEach(s=>{const r=rowFor(s);r.onclick=e=>{e.preventDefault();openSale(s.sale_id,r)};box.append(r)});
+    if(!ss.length){const r=el('div','row');r.append(el('div','a f24 muted','No sales in the last 3 months'));box.append(r)}
+    body.append(lab,box);
+  }
+
+  /* history at this address */
+  const hist=el('div');
+  const items=j.history||[];
+  const hl=el('div','list');
+  items.forEach(it=>{
+    const r=el('div','row hist'+(it.kind==='gap'?' gapnote':''));
+    r.append(el('div','d f12 muted',(it.by?'By ':'')+fmtD(it.day)),el('div','a f24',it.text));
+    hl.append(r);
+  });
+  if(!items.length){const r=el('div','row');r.append(el('div','a f24 muted','Nothing recorded at this address yet'));hl.append(r)}
+  hist.append(hl,el('p','q prof-end','Older history is not available to this tool: only the sales it has collected and the listings its daily checks have seen.'));
+  body.append(homeSect('History at this address',hist));
+
+  body.append(homeSect('Your notes',noteBox(key,j.note)));
+}
+
+/* ---------- the Shortlist view ---------- */
+const askVal=v=>v==null||v===''?'no price':/^\d+$/.test(String(v))?aud(+v):String(v);
+function changeText(c){
+  switch(c.kind){
+    case 'asking':return 'Asking changed: '+askVal(c.old)+' → '+askVal(c.new);
+    case 'listed':return 'Listed for sale';
+    case 'under_offer':return 'Now under offer';
+    case 'back_on_market':return 'Back on the market';
+    case 'gone':return 'Off the market';
+    case 'relisted':return 'Relisted';
+    case 'sold':return c.text||'Sold';
+    default:return String(c.kind||'').replace(/_/g,' ');
+  }
+}
+/* the asking change as an arrow, when both figures are numbers */
+function askArrow(ch){
+  if(!ch)return null;
+  const o=/^\d+$/.test(String(ch.old))?+ch.old:null,n=/^\d+$/.test(String(ch.new))?+ch.new:null;
+  const when=' on '+fmtD(ch.day);
+  if(o!=null&&n!=null&&o!==n)return {text:(n<o?'↓ down':'↑ up')+' from '+aud(o)+when,down:n<o};
+  return {text:'Asking changed from '+askVal(ch.old)+when,down:false};
+}
+function slEstimate(h){
+  const e=h.estimate,cell=el('div','e');
+  if(h.status==='sold'){
+    if(e&&e.middle!=null)cell.append(el('div','f24','We estimated '+mil(e.middle)));
+    if(h.gap_percent!=null)cell.append(el('small',h.gap_percent>0?'gap-above':h.gap_percent<0?'gap-below':null,h.gap_percent===0?'sold at the estimate':'Sold '+Math.abs(h.gap_percent)+'% '+(h.gap_percent>0?'above':'below')+' the estimate'));
+    if(!cell.children.length)cell.append(el('div','f24 none','No estimate kept'));
+    return cell;
+  }
+  if(e&&e.middle!=null){
+    cell.append(el('div','f24','We estimate '+mil(e.middle)));
+    if(e.low!=null&&e.high!=null)cell.append(el('small',null,mil(e.low)+'–'+mil(e.high)));
+  }else{cell.append(el('div','f24 none','No estimate'));if(e&&e.reason)cell.append(el('small',null,e.reason))}
+  return cell;
+}
+function slState(h){
+  const m=el('div','m'),ask=h.asking_text||(h.asking_price!=null?aud(h.asking_price):null);
+  const arrow=askArrow(h.last_asking_change);
+  if(h.status==='sold'){
+    m.append(el('div','f24',h.sold_price!=null?'SOLD '+aud(h.sold_price):'SOLD · price withheld'));
+    const bits=[];
+    if(ask)bits.push('asked '+ask);
+    if(h.sold_date)bits.push(fmtD(h.sold_date));
+    if(bits.length)m.append(el('small',null,bits.join(' · ')));
+  }else if(h.status==='gone'){
+    m.append(el('div','f24','Off the market'),el('small',null,'Sale not yet seen'));
+    if(ask)m.append(el('small',null,'Last asking '+ask));
+  }else if(h.status==='under_offer'||h.status==='for_sale'){
+    m.append(el('div','f24'+(ask?'':' none'),h.status==='under_offer'?'Under offer':(ask||'No asking price')));
+    if(h.status==='under_offer'&&ask)m.append(el('small',null,'Asking '+ask));
+    if(arrow)m.append(el('small',arrow.down?'gap-below':'gap-above',arrow.text));
+    if(h.days_listed!=null)m.append(el('small',null,h.days_listed===0?'Listed today':'Listed '+h.days_listed+' '+plural(h.days_listed,'day')));
+  }else m.append(el('div','f24 none','No longer tracked'));
+  return m;
+}
+function slRow(h){
+  const r=el('div','row fs sl');r.dataset.key=h.home_key;
+  const label=[h.address,h.suburb].filter(Boolean).join(', ')||'Address unknown';
+  const pk=h.page_key||h.home_key;   // a sold home's page is sale:<id>; its star lives under its address
+  const a=el('div','a'),t=el('div','f24');t.append(homeLink(pk,null,h.address||label));
+  a.append(t);
+  if(h.suburb)a.append(el('small',null,h.suburb));
+  const first=String(h.note||'').split('\n').find(x=>x.trim());
+  if(first)a.append(el('p','q nt','“'+first.trim()+'”'));
+  const st=el('div','st');
+  st.append(starButton(pk,true,label));
+  r.append(a,slState(h),slEstimate(h),st);
+  r.onclick=e=>{if(e.target.closest('a,button'))return;goHome(pk)};
+  return r;
+}
+let shortSeq=0;
+function loadShortlist(){
+  const my=++shortSeq,body=$('#short-body');
+  getJSON('/api/shortlist').then(j=>{if(my===shortSeq)renderShortlist(j)},err=>{
+    if(my!==shortSeq)return;
+    const g=el('div','grid');g.append(el('p','f24 errline',friendly(err)));body.replaceChildren(g);
+  });
+}
+function renderShortlist(j){
+  const body=$('#short-body');body.replaceChildren();
+  if(!j.homes.length){
+    const g=el('div','grid');
+    const p=el('div','sl-empty');p.append(el('p','f24','Star a home to follow it here'),el('p','q','Use the star on a home in For sale, or on the home’s own page. Changes to starred homes are listed here each time you come back.'));
+    g.append(p);body.append(g);return;
+  }
+  const first=!j.since;
+  if(!first){
+    const lab=el('div','sec-lab f12',(j.changes.length?'Changes since your last visit':'Nothing has changed since')+' ('+fmtD(j.since)+')'+(j.changes.length?' · '+j.changes.length:''));
+    const box=el('div','list');
+    if(!j.changes.length){const r=el('div','row');r.append(el('div','a f24 muted','Nothing has changed since '+fmtD(j.since)));box.append(r)}
+    j.changes.forEach(c=>{
+      const r=el('div','row hist sl-ch'),a=el('div','a');
+      const t=el('div','f24');t.append(homeLink(c.home_key,null,c.address||'This home'));
+      a.append(t,el('small',null,changeText(c)));
+      r.append(el('div','d f12 muted',fmtD(c.day)),a);box.append(r);
+    });
+    body.append(lab,box);
+  }else body.append(el('div','sec-lab f12','This is your first visit to the shortlist — changes will be listed from your next one'));
+  const lab=el('div','sec-lab f12 sl-lab','Starred homes · '+j.homes.length),box=el('div','list');
+  j.homes.forEach(h=>box.append(slRow(h)));
+  body.append(lab,box);
+}
+
+/* ---------- the Market view ---------- */
+const SVGNS='http://www.w3.org/2000/svg';
+const sv=(tag,attrs,text)=>{const e=document.createElementNS(SVGNS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(text!=null)e.textContent=text;return e};
+const CH={W:720,L:56,R:10,T:14};
+const monthLabel=m=>{const [y,mo]=m.split('-');return MON[+mo-1]+' '+y.slice(2)};
+const dayLabel=iso=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso);return m?(+m[3])+' '+MON[+m[2]-1]:iso};
+function niceCeil(v){const p=10**Math.floor(Math.log10(v));for(const m of [1,2,2.5,5,10])if(m*p>=v)return m*p;return 10*p}
+function chartBase(h,label){
+  const s=sv('svg',{viewBox:'0 0 '+CH.W+' '+h,class:'ch',role:'img','aria-label':label});
+  s.append(sv('title',{},label));return s;
+}
+function yAxis(s,lo,hi,plotH,fmt){
+  for(let i=0;i<=3;i++){
+    const v=lo+(hi-lo)*i/3,y=CH.T+plotH-(plotH*i/3);
+    s.append(sv('line',{class:'gl',x1:CH.L,x2:CH.W-CH.R,y1:y,y2:y}),sv('text',{class:'tx',x:CH.L-8,y:y+3,'text-anchor':'end'},fmt(v)));
+  }
+}
+const xAt=(i,n)=>CH.L+(i+.5)*(CH.W-CH.L-CH.R)/n;
+function xLabels(s,labels,y,every){
+  labels.forEach((t,i)=>{if(i%every===0||i===labels.length-1&&every===1)s.append(sv('text',{class:'tx',x:xAt(i,labels.length),y,'text-anchor':'middle'},t))});
+}
+/* a row of small figures under the plot: the count behind each point */
+function countRow(s,name,counts,y,every){
+  s.append(sv('text',{class:'tx tx-n',x:CH.L-8,y,'text-anchor':'end'},name));
+  counts.forEach((c,i)=>{if(i%every===0)s.append(sv('text',{class:'tx tx-n',x:xAt(i,counts.length),y,'text-anchor':'middle'},String(c)))});
+}
+/* bars: items {label, count, few}; the count is printed over each bar */
+function barChart(items,label,every){
+  const H=170,plotH=H-CH.T-24,s=chartBase(H,label);
+  const hi=Math.max(1,niceCeil(Math.max(1,...items.map(x=>x.count))/3))*3;
+  yAxis(s,0,hi,plotH,v=>String(Math.round(v)));
+  const bw=Math.min(28,(CH.W-CH.L-CH.R)/items.length*.62);
+  items.forEach((x,i)=>{
+    const bh=plotH*x.count/hi,cx=xAt(i,items.length);
+    if(x.count>0)s.append(sv('rect',{class:'bar'+(x.few?' few':''),x:cx-bw/2,y:CH.T+plotH-bh,width:bw,height:bh}));
+    s.append(sv('text',{class:'tx tx-n',x:cx,y:CH.T+plotH-bh-4,'text-anchor':'middle'},String(x.count)));
+  });
+  xLabels(s,items.map(x=>x.label),H-6,every);
+  return s;
+}
+/* lines: [{cls, vals:[{v,few}|null]}]; null breaks the line; a hollow dot means too few to trust */
+function lineChart(lines,labels,label,fmt,every,counts){
+  const rows=counts?counts.length:0,H=170+rows*13;
+  const all=lines.flatMap(l=>l.vals.filter(Boolean).map(p=>p.v)),s=chartBase(H,label);
+  const PH=170-CH.T-24;
+  if(!all.length){s.append(sv('text',{class:'tx',x:CH.W/2,y:H/2,'text-anchor':'middle'},'Nothing to plot yet'));return s}
+  let lo=Math.min(...all),hi=Math.max(...all);
+  const span=hi-lo||Math.abs(hi)*.1||1;lo=Math.max(0,lo-span*.2);hi=hi+span*.2;
+  yAxis(s,lo,hi,PH,fmt);
+  const y=v=>CH.T+PH-PH*(v-lo)/(hi-lo);
+  lines.forEach(l=>{
+    let d='';
+    l.vals.forEach((p,i)=>{d+=p?(d&&l.vals[i-1]?' L':' M')+xAt(i,l.vals.length).toFixed(1)+' '+y(p.v).toFixed(1):''});
+    s.append(sv('path',{class:'ln '+l.cls,d:d.trim()}));
+    l.vals.forEach((p,i)=>{if(!p||l.dots===false)return;
+      const c=sv('circle',{class:'pt '+l.cls+(p.few?' few':''),cx:xAt(i,l.vals.length),cy:y(p.v),r:3.4});
+      c.append(sv('title',{},labels[i]+': '+fmt(p.v)+(p.n!=null?' · '+p.n+' '+plural(p.n,'sale'):'')));
+      s.append(c);
+    });
+  });
+  xLabels(s,labels,170-6,every);
+  (counts||[]).forEach((c,k)=>countRow(s,c.name,c.vals,170+9+k*13,every));
+  return s;
+}
+function legend(items){
+  const d=el('div','legend f12');
+  items.forEach(([cls,text])=>{const s=el('span');s.append(el('i',cls),document.createTextNode(text));d.append(s)});
+  return d;
+}
+function buildingNote(since){
+  return el('p','q warnline',(since?'Building up since '+fmtD(since):'Building up')+' — needs two weeks of daily runs');
+}
+function fewNote(n,noun){return el('p','q warnline','Only '+n+' '+plural(n,noun)+' — too few to trust')}
+function tile(lab,value,lines){
+  const t=el('div');t.append(el('div','f12',lab),el('div','f40'+(value==null?' muted':''),value==null?'—':value));
+  lines.forEach(x=>t.append(x));return t;
+}
+function marketTiles(j){
+  const t=el('div','mk-tiles');
+  const fsn=j.for_sale_now,l1=[el('p','q',fsn.count.toLocaleString('en-AU')+' '+plural(fsn.count,'home')+' for sale or under offer · '+fsn.under_offer+' under offer')];
+  if(fsn.few&&fsn.count>0)l1.push(fewNote(fsn.count,'home'));
+  t.append(tile('For sale now',fsn.count.toLocaleString('en-AU'),l1));
+  const ts=j.time_to_sell,l2=[];
+  if(ts.median_days!=null){
+    l2.push(el('p','q','Median, from '+ts.count+' sold '+plural(ts.count,'home')+' · last 12 months'));
+    if(ts.few)l2.push(fewNote(ts.count,'sold home'));
+  }else l2.push(el('p','q','No sold homes with a listed date yet'));
+  if(ts.building_up)l2.push(buildingNote(ts.since));
+  t.append(tile('Time to sell',ts.median_days!=null?ts.median_days+' '+plural(ts.median_days,'day'):null,l2));
+  const pd=j.price_drops,l3=[];
+  if(pd.building_up)l3.push(buildingNote(pd.since));
+  else{
+    l3.push(el('p','q',pd.dropped+' of '+pd.count+' current '+plural(pd.count,'listing')+' have dropped'+(pd.median_drop_percent!=null?' · median drop '+pd.median_drop_percent+'%':'')));
+    if(pd.few&&pd.count>0)l3.push(fewNote(pd.count,'listing'));
+  }
+  t.append(tile('Price drops',pd.building_up||pd.share==null?null:Math.round(pd.share*100)+'%',l3));
+  return t;
+}
+function coverageLine(cov){
+  const p=el('p','q mk-cov');
+  if(!cov||!cov.total){p.textContent='No for-sale run has finished yet';return p}
+  p.textContent='From '+cov.read+' of '+cov.total+' agencies · '+(cov.missing&&cov.missing.length?'Not read: '+cov.missing.join(', '):'every agency was read');
+  return p;
+}
+function renderMarket(j){
+  const body=$('#market-body');body.replaceChildren();
+  $('#mk-summary').textContent=describe(stateAsFilters(),true);
+  const top=el('div');top.append(marketTiles(j),coverageLine(j.coverage));
+  body.append(homeSect('Right now',top));
+
+  /* new listings per week */
+  const w=el('div'),npw=j.new_per_week;
+  if(Array.isArray(npw)){
+    const total=npw.reduce((a,x)=>a+x.count,0);
+    w.append(barChart(npw.map(x=>({label:dayLabel(x.week_start),count:x.count,few:x.few})),'New listings per week, last '+npw.length+' weeks',2));
+    w.append(el('p','q mk-cap',total.toLocaleString('en-AU')+' new '+plural(total,'listing')+' in '+npw.length+' weeks, by the week they were listed (weeks start Monday)'+(npw.some(x=>x.few)?' · amber bars hold fewer than 5 — too few to trust':'')));
+  }else w.append(buildingNote(npw.since));
+  body.append(homeSect('New listings per week',w,'Last 12 weeks'));
+
+  /* asking against sold */
+  const av=el('div'),rows=j.asking_vs_sold;
+  const askN=rows.reduce((a,x)=>a+x.asking_count,0),soldN=rows.reduce((a,x)=>a+x.sold_count,0);
+  if(!askN&&!soldN)av.append(el('p','q','No asking prices or sales to compare yet'));
+  else{
+    av.append(legend([['sw-a','Median asking, first seen that month'],['sw-s','Median sold']]));
+    av.append(lineChart([
+      {cls:'a',vals:rows.map(x=>x.asking_median==null?null:{v:x.asking_median,few:x.asking_few,n:x.asking_count})},
+      {cls:'s',vals:rows.map(x=>x.sold_median==null?null:{v:x.sold_median,few:x.sold_few,n:x.sold_count})}],
+      rows.map(x=>monthLabel(x.month)),'Median asking against median sold price by month',short,1,
+      [{name:'asking n',vals:rows.map(x=>x.asking_count)},{name:'sold n',vals:rows.map(x=>x.sold_count)}]));
+    av.append(el('p','q mk-cap',askN.toLocaleString('en-AU')+' asking '+plural(askN,'price')+' and '+soldN.toLocaleString('en-AU')+' priced '+plural(soldN,'sale')+' · the number under each month is how many stand behind its point · a hollow dot means fewer than 5 — too few to trust'+(j.history_ready?'':' · asking prices only count from the first daily run')));
+  }
+  body.append(homeSect('Asking against sold',av,'Last 12 months'));
+
+  /* sold by month */
+  const sm=el('div'),mo=j.sold_by_month,total=mo.reduce((a,x)=>a+x.count,0);
+  if(!total)sm.append(el('p','q','No priced sales match these filters'));
+  else{
+    const labels=mo.map(x=>monthLabel(x.month));
+    sm.append(el('p','f12 muted mk-sub','Median sold price'));
+    sm.append(lineChart([{cls:'s',vals:mo.map(x=>x.median==null?null:{v:x.median,few:x.few,n:x.count})}],labels,'Median sold price by month, last 3 years',short,3));
+    sm.append(el('p','f12 muted mk-sub','Sales per month'));
+    sm.append(barChart(mo.map((x,i)=>({label:labels[i],count:x.count,few:x.few})),'Sales per month, last 3 years',3));
+    if(j.level){
+      sm.append(el('p','f12 muted mk-sub','Market level · the price index, today = 100'));
+      sm.append(lineChart([{cls:'lv',dots:false,vals:j.level.map(x=>({v:x.level}))}],j.level.map(x=>monthLabel(x.month)),'Market level by month',v=>v.toFixed(0),3));
+    }else sm.append(el('p','q mk-cap','The market level line needs the pricing model, which has not been fitted yet.'));
+    sm.append(el('p','q mk-cap',total.toLocaleString('en-AU')+' priced '+plural(total,'sale')+' in 36 months · the number over each bar is that month’s count · hollow dots and amber bars hold fewer than 5 — too few to trust'));
+  }
+  body.append(homeSect('Sold by month',sm,'Last 3 years'));
+}
+let mkSeq=0;
+function marketParams(){return new URLSearchParams([['view','market'],...toParams(state)])}
+function runMarket(){
+  clearTimeout(typeTimer);
+  const my=++mkSeq;
+  syncUrl();
+  const qs=marketParams();qs.delete('view');
+  document.body.classList.add('fbusy');
+  getJSON('/api/market?'+qs).then(j=>{
+    if(my!==mkSeq)return;
+    document.body.classList.remove('fbusy');
+    renderMarket(j);
+  },err=>{
+    if(my!==mkSeq)return;
+    document.body.classList.remove('fbusy');
+    const g=el('div','grid');g.append(el('p','f24 errline',friendly(err)));$('#market-body').replaceChildren(g);
+  });
+}
+
+/* ---------- the views, mirrored in the URL ---------- */
+const VIEWS={sold:'#v-sold',forsale:'#v-forsale',home:'#v-home',shortlist:'#v-short',market:'#v-market',estimate:'#v-est'};
+const NAV={sold:'#to-sold',forsale:'#to-fs',shortlist:'#to-short',market:'#to-market',estimate:'#to-est'};
+const FOOTERS={sold:'#ftr',estimate:'#ftr-est',home:null};
+const TITLES={sold:'Sold Radar',forsale:'For sale · Sold Radar',home:'Home · Sold Radar',shortlist:'Shortlist · Sold Radar',market:'Market · Sold Radar',estimate:'Estimate · Sold Radar'};
+function setView(v){
+  if(view==='home'&&v!=='home')flushNote();
+  view=v;
+  Object.entries(VIEWS).forEach(([k,s])=>{$(s).hidden=k!==v});
+  ['#ftr','#ftr-est','#ftr-fs'].forEach(s=>{$(s).hidden=s!==(v in FOOTERS?FOOTERS[v]:'#ftr-fs')});
+  $('#search').hidden=!(v==='sold'||v==='forsale'||v==='market');$('#copy').hidden=v!=='sold';
+  document.body.classList.toggle('fs',v==='forsale'||v==='market');
+  if(v==='sold'||v==='forsale'||v==='market')($({sold:'#sold-filters-slot',forsale:'#fs-filters-slot',market:'#mk-filters-slot'}[v])).append($('#filters'));
+  Object.entries(NAV).forEach(([k,s])=>{if(k===v)$(s).setAttribute('aria-current','page');else $(s).removeAttribute('aria-current')});
+  document.title=TITLES[v];
+}
+function goEstimateView(){
+  if(HOSTED)return;
+  if(view!=='estimate'){clearTimeout(typeTimer);history.pushState(null,'',location.pathname+'?'+estToParams());setView('estimate')}
+  else syncEstUrl();
+  scrollTo(0,0);
+}
+$('#to-est').onclick=()=>{
+  if(HOSTED||view==='estimate')return;
+  goEstimateView();renderEstForm();
+  if(!est.suburb)renderEstEmpty();else if(!estLast){estPending();runEstimate()}
+  if(!est.address)$('#e-address').focus({preventScroll:true});
+};
+$('#to-sold').onclick=()=>{
+  if(view==='sold')return;
+  clearTimeout(estTimer);
+  const qs=toParams(state).toString();
+  history.pushState(null,'',location.pathname+(qs?'?'+qs:''));
+  setView('sold');syncControls();scrollTo(0,0);
+  if(!soldStarted||qs!==lastSoldQs)run();
+};
+$('#to-fs').onclick=()=>{
+  if(view==='forsale')return;
+  clearTimeout(estTimer);
+  setView('forsale');syncControls();syncFsControls();
+  history.pushState(null,'',location.pathname+'?'+fsParams());
+  scrollTo(0,0);runForsale();
+};
+$('#to-short').onclick=()=>{
+  if(view==='shortlist')return;
+  clearTimeout(estTimer);
+  setView('shortlist');history.pushState(null,'',location.pathname+'?view=shortlist');scrollTo(0,0);loadShortlist();
+};
+$('#to-market').onclick=()=>{
+  if(view==='market')return;
+  clearTimeout(estTimer);
+  setView('market');syncControls();
+  history.pushState(null,'',location.pathname+'?'+marketParams());
+  scrollTo(0,0);runMarket();
+};
+/* "Estimate this home today": the Estimate view for a stored sale's address; the server pre-fills from that sale */
+function estimateHome(address,suburb){
+  if(HOSTED)return;
+  est={address,suburb,typed:{},features:null};estLast=null;lookSeq++;
+  goEstimateView();renderEstForm();estPending();runEstimate();
+  $('#est-h').focus({preventScroll:true});
+}
+function applyUrl(){
+  const p=new URLSearchParams(location.search);
+  if(p.get('view')==='estimate'&&!HOSTED){
+    est=estFromParams(p);estLast=null;lookSeq++;estSeq++;
+    setView('estimate');renderEstForm();
+    if(est.suburb){estPending();runEstimate()}else renderEstEmpty();
+  }else if(p.get('view')==='forsale'){
+    state=fromParams(p);fsFromParams(p);setView('forsale');syncControls();syncFsControls();runForsale();
+  }else if(p.get('view')==='home'&&p.get('key')){
+    setView('home');loadHome(p.get('key'));
+  }else if(p.get('view')==='shortlist'){
+    setView('shortlist');loadShortlist();
+  }else if(p.get('view')==='market'){
+    state=fromParams(p);setView('market');syncControls();runMarket();
+  }else{
+    state=fromParams(p);setView('sold');syncControls();run();
+  }
+}
+addEventListener('popstate',()=>{if(openOv)closeOverlay();applyUrl()});
+
+/* ---------- start ---------- */
+function renderMeta(){
+  const typeSel=$('#type');typeSel.replaceChildren();
+  meta.property_types.forEach(t=>typeSel.append(new Option(TYPE_LABEL[t]||t,t)));
+  typeSel.append(new Option('Any type','any'));
+  renderRunInfo();
+}
+function renderRunInfo(){
+  const c=meta.counts,last=meta.last_collected;
+  $('#last-run').textContent=last?fmtRun(last):'Not yet';
+  if(last&&c){
+    const notRead=(meta.coverage||[]).filter(x=>x.status!=='ok');
+    $('#ft-read').textContent=c.ok+' of '+c.total+' agency sources read';
+    $('#ft-failed').textContent=notRead.length?'Not read: '+notRead.map(sourceName).join(', '):'Every source was read';
+  }else{$('#ft-read').textContent='No collection run has finished yet';$('#ft-failed').textContent=''}
+  renderFsFoot(meta.forsale_coverage,meta.forsale_last_run);
+  renderHostFoot();
+}
+async function start(){
+  try{meta=await getJSON('/api/meta');renderMeta()}
+  catch(e){if(e.signedOut)return;showError('Could not load suburbs and features: '+(e.message==='Failed to fetch'?'could not reach the server':e.message))}
+  applyUrl();
+}
+
+/* ---------- hosted only: the sign-in screen, and the footer line ---------- */
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+function renderHostFoot(){
+  if(!HOSTED)return;
+  const t=meta&&meta.published_at?new Date(meta.published_at):null;
+  $('#ft-host-upd').textContent=t&&!isNaN(t)?'Updated '+DAYS[t.getDay()]+' '+t.getDate()+' '+MON[t.getMonth()]+', '+pad(t.getHours())+':'+pad(t.getMinutes()):'';
+}
+let signinBox=null;
+function buildSignIn(){
+  const box=el('div');box.id='signin';
+  const h=el('h1','f40','Sold Radar');
+  const form=el('form');form.noValidate=false;
+  const field=(id,label,type,ac)=>{
+    const d=el('div','field'),l=el('label','f12',label);l.htmlFor=id;
+    const i=el('input');i.id=id;i.type=type;i.required=true;i.autocomplete=ac;i.spellcheck=false;
+    if(type==='email'){i.autocapitalize='none';i.setAttribute('autocorrect','off')}
+    d.append(l,i);return [d,i];
+  };
+  const [dE,email]=field('si-email','Email','email','username');
+  const [dP,pw]=field('si-password','Password','password','current-password');
+  const dS=el('div','field'),ls=el('label','tick f12'),stay=el('input');
+  stay.type='checkbox';stay.checked=true;ls.append(stay,document.createTextNode('Stay signed in on this device'));dS.append(ls);
+  const go=el('button','go f12','Sign in');go.type='submit';
+  const msg=el('p','msg q errline');msg.setAttribute('role','alert');
+  form.append(dE,dP,dS,go,msg);
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    go.disabled=true;msg.textContent='';
+    try{await sess.signIn(email.value.trim(),pw.value,stay.checked);pw.value='';hideSignIn();resume()}
+    catch(err){msg.textContent=err.message}
+    finally{go.disabled=false}
+  };
+  box.append(h,form);
+  box._msg=msg;box._email=email;
+  return box;
+}
+function showSignIn(message){
+  if(openOv)closeOverlay();
+  if(!signinBox){signinBox=buildSignIn();document.body.append(signinBox)}
+  document.body.classList.add('locked');
+  $('#ftr-host').hidden=true;
+  signinBox.hidden=false;signinBox._msg.textContent=message||'';
+  signinBox._email.focus({preventScroll:true});
+}
+function hideSignIn(){
+  document.body.classList.remove('locked');
+  if(signinBox)signinBox.hidden=true;
+  $('#ftr-host').hidden=false;
+}
+/* back in after signing in again: keep what is on screen (an unsaved note stays in its box and is saved) */
+function resume(){
+  if(!meta)start();
+  else if(view==='home'&&noteCtl)noteCtl.save();
+  else{renderHostFoot();applyUrl()}
+}
+function boot(){
+  if(!HOSTED){start();return}
+  $('#to-est').hidden=true;
+  $('#sign-out').onclick=async()=>{await sess.signOut();showSignIn('')};
+  if(sess.signedIn()){hideSignIn();start()}else showSignIn('');
+}
+boot();
+</script>
+</body>
+</html>
