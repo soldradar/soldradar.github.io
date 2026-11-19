@@ -226,6 +226,7 @@ body.fs .sold-only{display:none}
 .star{font-size:24px;line-height:1;padding:2px 4px;color:var(--ink-3);transition:color .2s}
 .star:hover,.star.on{color:var(--ink)}
 .star.on{color:var(--warn)}
+.star.unk{opacity:.45}
 .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:99px}
 
 /* ---------- the home page ---------- */
@@ -1031,10 +1032,10 @@ function renderSale(s){
     const hp=el('button','go inl f12','Home page');hp.type='button';hp.onclick=()=>{closeOverlay();goHome(key)};
     const p=el('p');p.append(hp);
     const sb=el('button','go inl f12','☆ Star this home');sb.type='button';sb.hidden=true;sb.style.marginLeft='8px';
-    const paint=on=>{sb.setAttribute('aria-pressed',String(on));sb.textContent=on?'★ Starred':'☆ Star this home'};
+    const paint=on=>starLabel(sb,on);
     sb.onclick=()=>toggleStar(key,sb.getAttribute('aria-pressed')!=='true',paint,sb);
     const mine=saleSeq;
-    getJSON('/api/home/'+encodeURIComponent(key)).then(j=>{if(mine===saleSeq){paint(!!j.starred);sb.hidden=false}},()=>{});
+    getJSON('/api/home/'+encodeURIComponent(key)).then(j=>{if(mine===saleSeq){paint(j.starred===null||j.starred===undefined?null:!!j.starred);sb.hidden=false}},()=>{});
     p.append(sb);sub.append(p);
   }
   head.append(h,sub);body.append(head);
@@ -1482,15 +1483,27 @@ const CANT_REACH="Can't reach the shortlist";   // the server's answer when the 
 /* the star toggles at once and goes back if the server says no; `paint(on)` draws the button */
 async function toggleStar(key,on,paint,btn){
   if(btn.dataset.busy)return null;
+  const was=btn.dataset.unk?null:!on;   /* null: the shortlist was unreachable, so the star was unknown */
   btn.dataset.busy='1';paint(on);
   try{await postJSON('/api/star',{home_key:key,on});return on}
-  catch(e){paint(!on);flash(e.message===CANT_REACH?CANT_REACH:SAVE_FAILED);return !on}
+  catch(e){paint(was);flash(e.message===CANT_REACH?CANT_REACH:SAVE_FAILED);return was}
   finally{delete btn.dataset.busy}
 }
 function paintStar(btn,on,label){
+  if(on===null||on===undefined){   /* the shortlist could not be read: neither starred nor not starred */
+    btn.classList.remove('on');btn.classList.add('unk');btn.dataset.unk='1';btn.removeAttribute('aria-pressed');
+    btn.textContent='–';btn.setAttribute('aria-label','Shortlist unavailable for '+label);btn.title="Can't reach the shortlist";
+    return;
+  }
+  btn.classList.remove('unk');delete btn.dataset.unk;btn.removeAttribute('title');
   btn.classList.toggle('on',on);btn.setAttribute('aria-pressed',String(on));
   btn.textContent=on?'★':'☆';
   btn.setAttribute('aria-label',(on?'Remove the star from ':'Star ')+label);
+}
+/* the text buttons ("☆ Star this home"); null = the shortlist is unreachable, so neither starred nor not */
+function starLabel(sb,on){
+  if(on===null||on===undefined){sb.dataset.unk='1';sb.removeAttribute('aria-pressed');sb.textContent="– Shortlist unavailable";return}
+  delete sb.dataset.unk;sb.setAttribute('aria-pressed',String(on));sb.textContent=on?'★ Starred':'☆ Star this home';
 }
 function starButton(key,on,label,after){
   const b=el('button','star');b.type='button';paintStar(b,on,label);
@@ -1623,7 +1636,7 @@ function fsRow(h){
   const st=el('div','st');
   st.append(starButton(h.home_key,h.starred,label,on=>{h.starred=on}));
   r.append(ph,a,m,fsEstimateCell(h),st);
-  r.onclick=e=>{if(e.target.closest('a,button'))return;goHome(pk)};
+  r.onclick=e=>{if(e.target.closest('a,button'))return;goHome(h.home_key)};
   return r;
 }
 
@@ -1715,8 +1728,8 @@ function renderHome(key,j){
     si.textContent=word+(h.days_listed!=null&&h.status!=='sold'?' · listed '+h.days_listed+' '+plural(h.days_listed,'day'):'');
   }
   sub.textContent=[h.agency,sold?h.postcode:null].filter(Boolean).join(' · ');
-  const sb=$('#home-star'),paint=on=>{sb.setAttribute('aria-pressed',String(on));sb.textContent=on?'★ Starred':'☆ Star this home'};
-  paint(!!j.starred);sb.hidden=false;
+  const sb=$('#home-star'),paint=on=>starLabel(sb,on);
+  paint(j.starred===null||j.starred===undefined?null:!!j.starred);sb.hidden=false;
   sb.onclick=()=>toggleStar(key,sb.getAttribute('aria-pressed')!=='true',paint,sb);
 
   /* the price and the estimate */
@@ -2224,7 +2237,7 @@ function resume(){
 function boot(){
   if(!HOSTED){start();return}
   $('#to-est').hidden=true;
-  $('#sign-out').onclick=async()=>{await sess.signOut();showSignIn('')};
+  $('#sign-out').onclick=async()=>{await sess.signOut();location.reload()};   /* a fresh page: nothing stays in the hidden DOM */
   if(sess.signedIn()){hideSignIn();start()}else showSignIn('');
 }
 boot();
