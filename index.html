@@ -85,6 +85,14 @@ main{padding-top:150px}
 .chip{border:1px solid var(--hair);border-radius:99px;padding:8px 14px;font-size:12px;text-transform:uppercase;line-height:1;transition:all .25s var(--ease)}
 .chip:hover{border-color:var(--ink)}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip-gap{margin-left:16px}
+.add-fields{margin:18px 0 6px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:20px 20px;align-items:end}
+@media(max-width:700px){.add-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.add-fields .field.wide,.add-fields .field.two{grid-column:1/-1}}
+.add-row{border-top:1px solid var(--hair);padding:14px 0;display:grid;gap:4px;justify-items:start}
+.add-row a{text-decoration:underline}
+.add-row .chip{margin-top:6px}
+.add-h{margin:22px 0 8px}
+#add-go:disabled,.add-row .chip:disabled{opacity:.4}
 
 .stats{border-top:1px solid var(--hair);padding-top:16px;padding-bottom:44px}
 .stats .lab{grid-column:1/4}
@@ -464,6 +472,33 @@ body.locked #hdr,body.locked #main,body.locked footer,body.locked .ov,body.locke
   </div>
   <div class="sec-lab f12" id="fs-lab">Homes for sale</div>
   <div class="list fs-list" id="fs-list"></div>
+  <div class="grid sect" id="add-sect" hidden>
+    <div class="lab f12">Add a home by hand<br><span class="muted">One you found on another site</span></div>
+    <div class="body">
+      <p class="q">Open the listing page and copy the details from it. A hand-added home joins the list after the next morning update, is never re-read automatically, and drops out if it is not re-confirmed for 21 days.</p>
+      <form id="add-form" class="fields add-fields" autocomplete="off">
+        <div class="field wide"><label class="f12" for="add-url">Listing page address (https)</label><input id="add-url" name="source_url" type="url" required maxlength="500" placeholder="https://"></div>
+        <div class="field wide"><label class="f12" for="add-address">Street address</label><input id="add-address" name="address" required maxlength="200" placeholder="12 Example Court"></div>
+        <div class="field two"><label class="f12" for="add-suburb">Suburb</label><input id="add-suburb" name="suburb" required maxlength="80" list="add-suburbs"><datalist id="add-suburbs"></datalist></div>
+        <div class="field"><label class="f12" for="add-postcode">Postcode</label><input id="add-postcode" name="postcode" inputmode="numeric" maxlength="4"></div>
+        <div class="field two"><label class="f12" for="add-status">Status</label><select id="add-status" name="status"><option value="for_sale">For sale</option><option value="under_offer">Under offer</option><option value="sold">Sold</option></select></div>
+        <div class="field two"><label class="f12" for="add-type">Type</label><select id="add-type" name="property_type"><option value="">Not sure</option><option value="house">House</option><option value="unit">Unit</option><option value="townhouse">Townhouse</option><option value="land">Land</option><option value="rural">Rural</option><option value="other">Other</option></select></div>
+        <div class="field wide" data-when="market"><label class="f12" for="add-asking">Price exactly as advertised</label><input id="add-asking" name="asking_text" maxlength="200" placeholder="Offers over $899,000, Auction, Contact agent"></div>
+        <div class="field two"><label class="f12" for="add-listed">Date listed</label><input id="add-listed" name="listed_date" type="date"></div>
+        <div class="field two" data-when="sold" hidden><label class="f12" for="add-soldprice">Sold price, $</label><input id="add-soldprice" name="sold_price" type="number" min="1" step="1" inputmode="numeric"></div>
+        <div class="field two" data-when="sold" hidden><label class="f12" for="add-solddate">Date sold</label><input id="add-solddate" name="sold_date" type="date"></div>
+        <div class="field"><label class="f12" for="add-beds">Beds</label><input id="add-beds" name="beds" type="number" min="0" max="20" step="1" inputmode="numeric"></div>
+        <div class="field"><label class="f12" for="add-baths">Baths</label><input id="add-baths" name="baths" type="number" min="0" max="20" step="1" inputmode="numeric"></div>
+        <div class="field"><label class="f12" for="add-cars">Cars</label><input id="add-cars" name="cars" type="number" min="0" max="20" step="1" inputmode="numeric"></div>
+        <div class="field two"><label class="f12" for="add-land">Land, m²</label><input id="add-land" name="land_m2" type="number" min="0" step="any" inputmode="decimal"></div>
+        <div class="field two"><label class="f12" for="add-agency">Agency</label><input id="add-agency" name="agency" maxlength="120"></div>
+        <div class="field wide"><label class="tick"><input id="add-confirmed" type="checkbox" required style="width:auto"> I read these details from the listing page today</label></div>
+        <div class="field two"><button class="chip" type="submit" id="add-go">Add this home</button></div>
+      </form>
+      <p class="q" id="add-msg" role="status"></p>
+      <div id="add-list"></div>
+    </div>
+  </div>
  </div>
 
  <div id="v-home" hidden>
@@ -1521,15 +1556,16 @@ function homeLink(key,cls,text){
 /* ---------- the For sale view ---------- */
 const FS_STATUS=[['all','All'],['under_offer','Under offer'],['dropped','Price dropped']];
 const FS_SORTS=['newest','asking','gap','days'];
-let fs={status:'all',sort:'newest'},fsSeq=0;
+let fs={status:'all',sort:'newest',hideUnpriced:false},fsSeq=0;
 function fsParams(){
   const p=new URLSearchParams([['view','forsale'],...toParams(state)]);
   if(fs.status!=='all')p.set('status',fs.status);
   if(fs.sort!=='newest')p.set('sort',fs.sort);
+  if(fs.hideUnpriced)p.set('unpriced','hide');
   return p;
 }
 function fsFromParams(p){
-  fs={status:FS_STATUS.some(x=>x[0]===p.get('status'))?p.get('status'):'all',sort:FS_SORTS.includes(p.get('sort'))?p.get('sort'):'newest'};
+  fs={status:FS_STATUS.some(x=>x[0]===p.get('status'))?p.get('status'):'all',sort:FS_SORTS.includes(p.get('sort'))?p.get('sort'):'newest',hideUnpriced:p.get('unpriced')==='hide'};
 }
 function syncFsControls(){
   $('#fs-sort').value=fs.sort;
@@ -1540,6 +1576,11 @@ function syncFsControls(){
     b.onclick=()=>{fs.status=v;syncFsControls();runForsale()};
     box.append(b);
   });
+  /* homes with no advertised price are always shown unless this is switched on */
+  const hb=el('button','chip chip-gap'+(fs.hideUnpriced?' on':''),'Hide homes with no price');hb.type='button';
+  hb.setAttribute('aria-pressed',String(fs.hideUnpriced));
+  hb.onclick=()=>{fs.hideUnpriced=!fs.hideUnpriced;syncFsControls();runForsale()};
+  box.append(hb);
 }
 $('#fs-sort').addEventListener('change',e=>{fs.sort=e.target.value;runForsale()});
 
@@ -1551,10 +1592,12 @@ function stateAsFilters(){
     price_min:n('price_min'),price_max:n('price_max'),features:state.features,yard:state.yard};
 }
 function runForsale(){
+  loadAdded();
   clearTimeout(typeTimer);
   const my=++fsSeq;
   syncUrl();
   const qs=fsParams();qs.delete('view');
+  if(!fs.hideUnpriced)qs.set('unpriced','include');   /* a price range must not drop the homes with no advertised price */
   document.body.classList.add('fbusy');
   getJSON('/api/forsale?'+qs).then(j=>{
     if(my!==fsSeq)return;
@@ -1577,7 +1620,7 @@ function renderFsFoot(cov,last){
 function renderForsale(j){
   const n=j.count,none=!j.coverage||!j.coverage.total;
   $('#fs-count').textContent=n?n.toLocaleString('en-AU')+' '+plural(n,'home'):'no homes';
-  $('#fs-basis').textContent=none?'No for-sale run has finished yet':'For sale or under offer'+(fs.status==='under_offer'?' · under offer only':fs.status==='dropped'?' · price dropped only':'');
+  $('#fs-basis').textContent=none?'No for-sale run has finished yet':'For sale or under offer'+(fs.status==='under_offer'?' · under offer only':fs.status==='dropped'?' · price dropped only':'')+fsUnpricedWords(j);
   $('#fs-summary').textContent=describe(stateAsFilters(),true);
   $('#fs-lab').textContent='Homes for sale'+(n?' · '+n.toLocaleString('en-AU'):'');
   renderFsFoot(j.coverage,j.last_run);
@@ -1589,6 +1632,62 @@ function renderForsale(j){
   list.append(frag);
 }
 const mil=v=>short(v);
+
+/* ---------- homes added by hand (the hosted site only: the list lives in its database) ---------- */
+const ADD_STATUS={for_sale:'For sale',under_offer:'Under offer',sold:'Sold'};
+let addLoaded=false;
+function addSay(msg,cls){const m=$('#add-msg');m.className='q'+(cls?' '+cls:'');m.textContent=msg||''}
+function addSyncStatus(){
+  const sold=$('#add-status').value==='sold';
+  document.querySelectorAll('#add-form [data-when]').forEach(f=>{f.hidden=(f.dataset.when==='sold')!==sold});
+}
+function addRow(h,today){
+  const w=el('div','add-row'),t=el('div','f24');
+  const a=document.createElement('a');a.href=h.source_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=h.address+', '+h.suburb;t.append(a);
+  const price=h.status==='sold'?('Sold'+(h.sold_price?' '+aud(h.sold_price):', price not given')+(h.sold_date?' on '+fmtD(h.sold_date):'')):(h.asking_text||'No price given');
+  const age=Math.max(0,Math.round((Date.parse(today)-Date.parse(h.checked_on))/864e5));
+  const bits=[ADD_STATUS[h.status]||h.status,price,h.listed_date?'listed '+fmtD(h.listed_date):null,h.agency].filter(Boolean);
+  const check=el('small',(!h.verified||age>=7)?'warnline':null,(h.verified?'Confirmed from the listing page':'Not confirmed')+' · checked '+(age===0?'today':age+' '+plural(age,'day')+' ago')+(age>=7?' · re-confirm it or it drops out after 21 days':''));
+  const rm=el('button','chip','Remove');rm.type='button';
+  rm.onclick=async()=>{rm.disabled=true;try{await postJSON('/api/added/remove',{id:h.id});addSay('Removed '+h.address+'. It leaves the list after the next morning update.');loadAdded()}catch(e){rm.disabled=false;addSay(friendly(e),'errline')}};
+  w.append(t,el('small',null,bits.join(' · ')),check,rm);return w;
+}
+function loadAdded(){
+  if(SR.mode!=='hosted')return;
+  $('#add-sect').hidden=false;
+  if(!addLoaded){
+    addLoaded=true;
+    const dl=$('#add-suburbs');(meta?meta.suburbs:[]).forEach(x=>{const o=document.createElement('option');o.value=x.name;dl.append(o)});
+  }
+  getJSON('/api/added').then(j=>{
+    const box=$('#add-list');box.replaceChildren();
+    if(j.homes.length)box.append(el('p','f12 muted add-h',j.homes.length+' of '+j.max+' added by hand'));
+    j.homes.forEach(h=>box.append(addRow(h,j.today)));
+  },()=>{});
+}
+$('#add-status').addEventListener('change',addSyncStatus);
+$('#add-form').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const f=e.target,v=n=>f.elements[n].value.trim(),num=n=>v(n)===''?null:+v(n),sold=v('status')==='sold';
+  const body={source_url:v('source_url'),address:v('address'),suburb:v('suburb'),postcode:v('postcode')||null,status:v('status'),
+    property_type:v('property_type')||null,asking_text:v('asking_text')||null,listed_date:v('listed_date')||null,
+    sold_price:sold?num('sold_price'):null,sold_date:sold?(v('sold_date')||null):null,
+    beds:num('beds'),baths:num('baths'),cars:num('cars'),land_m2:num('land_m2'),agency:v('agency')||null,confirmed:$('#add-confirmed').checked};
+  const go=$('#add-go');go.disabled=true;addSay('Saving…');
+  try{
+    const j=await postJSON('/api/added',body);
+    addSay((j.updated?'Updated ':'Added ')+j.home.address+', '+j.home.suburb+'. '+(sold?'A sold home is kept on file but is not listed for sale.':'It joins the list, with an estimate where one can be made, after the next morning update.'));
+    f.reset();addSyncStatus();loadAdded();
+  }catch(err){addSay(friendly(err),'errline')}
+  go.disabled=false;
+});
+const FIT_WORDS={inside:'Estimate fits your price range',maybe:'Estimate overlaps your price range',unknown:'No estimate to place it in your price range',outside:'Estimate is outside your price range'};
+function fsUnpricedWords(j){
+  if(fs.hideUnpriced)return ' · homes with no price hidden';
+  if(!j.homes||j.homes.length<j.count)return '';     /* a capped list cannot be counted here */
+  const k=j.homes.filter(h=>h.asking_price==null).length;
+  return k?' · '+k.toLocaleString('en-AU')+' with no advertised price':'';
+}
 /* the estimate cell of a row: the figure, its range, and how the asking price compares */
 function fsEstimateCell(h){
   const e=h.estimate,cell=el('div','e');
@@ -1604,7 +1703,7 @@ function fsEstimateCell(h){
     cell.append(el('div','f24','We estimate '+mil(e.low)+'–'+mil(e.high)),el('small',null,'Low confidence · a range only'));
   }else{cell.append(el('div','f24 none','No estimate'),el('small',null,'Comparable sales only'));return cell}
   const g=h.gap_percent;
-  if(h.asking_price==null)cell.append(el('small',null,'no asking price'));
+  if(h.asking_price==null)cell.append(el('small',h.range_fit==='outside'?'gap-above':null,FIT_WORDS[h.range_fit]||'no asking price'));
   else if(g!=null)cell.append(el('small',g>0?'gap-above':g<0?'gap-below':null,g===0?'at the estimate':Math.abs(g)+'% '+(g>0?'above':'below')));
   return cell;
 }
