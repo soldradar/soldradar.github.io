@@ -91,6 +91,8 @@ main{padding-top:150px}
 .add-row{border-top:1px solid var(--hair);padding:14px 0;display:grid;gap:4px;justify-items:start}
 .add-row a{text-decoration:underline}
 .add-row .chip{margin-top:6px}
+.add-row .acts{display:flex;flex-wrap:wrap;gap:8px}
+.meta-note{grid-column:1/-1;margin:0}
 .add-h{margin:22px 0 8px}
 #add-go:disabled,.add-row .chip:disabled{opacity:.4}
 
@@ -121,6 +123,7 @@ a.row:focus-visible{outline-offset:-4px}
 .list{border-bottom:1px solid var(--hair);margin-bottom:60px}
 .more{display:block;width:100%;padding:16px var(--g);border-top:1px solid var(--hair);transition:background .3s var(--ease)}
 .more:hover{background:var(--bg-2)}
+.cut{padding:16px var(--g);border-top:1px solid var(--hair);color:var(--ink-2)}
 
 footer{display:flex;justify-content:space-between;padding:0 var(--g) 28px;gap:20px}
 #upd{margin-top:4px}#upd-btn[disabled]{opacity:.5}
@@ -316,10 +319,11 @@ body.fs .sold-only{display:none}
   .row.sl .a{grid-column:1/12}.row.sl .st{grid-column:12/13}.row.sl .m{grid-column:1/7;margin-top:10px}.row.sl .e{grid-column:7/13;margin-top:10px}
   .mk-tiles{grid-template-columns:minmax(0,1fr)}
 }
-#signin{max-width:420px;margin:0 auto;padding:18vh var(--g) 60px}
-#signin h1{margin:0 0 28px}
+#signin,#blocked{max-width:420px;margin:0 auto;padding:18vh var(--g) 60px}
+#signin h1,#blocked h1{margin:0 0 28px}
 #signin .field{margin-bottom:22px}
-#signin .go{margin-top:8px}
+#signin .go,#blocked .go{margin-top:8px}
+#blocked .q{margin:0 0 20px}
 #signin .go[disabled]{opacity:.45;cursor:default}
 #signin .msg{min-height:1.4em;margin:18px 0 0}
 body.locked #hdr,body.locked #main,body.locked footer,body.locked .ov,body.locked .toast{display:none!important}
@@ -354,6 +358,7 @@ body.locked #hdr,body.locked #main,body.locked footer,body.locked .ov,body.locke
   <form class="grid filters" id="filters" onsubmit="return false">
     <div class="lab f12">Filters</div>
     <div class="fields">
+      <p class="q errline meta-note" id="meta-note" role="status" hidden></p>
       <div class="field wide" id="sub-field">
         <label class="f12" for="sub-input">Suburbs</label>
         <div class="ms" id="sub-box">
@@ -476,7 +481,7 @@ body.locked #hdr,body.locked #main,body.locked footer,body.locked .ov,body.locke
   <div class="grid sect" id="add-sect" hidden>
     <div class="lab f12">Add a home by hand<br><span class="muted">One you found on another site</span></div>
     <div class="body">
-      <p class="q">Open the listing page and copy the details from it. A hand-added home joins the list after the next morning update, is never re-read automatically, and drops out if it is not re-confirmed for 21 days.</p>
+      <p class="q">Open the listing page and copy the details from it. A hand-added home joins the list after the next update, is never re-read automatically, and drops out if it is not re-confirmed for 21 days.</p>
       <form id="add-form" class="fields add-fields" autocomplete="off">
         <div class="field wide"><label class="f12" for="add-url">Listing page address (https)</label><input id="add-url" name="source_url" type="url" required maxlength="500" placeholder="https://"></div>
         <div class="field wide"><label class="f12" for="add-address">Street address</label><input id="add-address" name="address" required maxlength="200" placeholder="12 Example Court"></div>
@@ -571,9 +576,25 @@ const pad=n=>String(n).padStart(2,'0');
 const aud=v=>'$'+Math.round(v).toLocaleString('en-AU');
 const short=v=>'$'+(v/1e6).toFixed(2)+'m';
 const area=v=>Math.round(v).toLocaleString('en-AU')+' m²';
-const fmtD=iso=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');return m?(+m[3])+' '+MON[+m[2]-1]+' '+m[1]:String(iso)};
-const fmtRun=iso=>{const t=new Date(iso);return isNaN(t)?String(iso):t.getDate()+' '+MON[t.getMonth()]+' . '+pad(t.getHours())+':'+pad(t.getMinutes())};
-const fmtRunLong=iso=>{const t=new Date(iso);return isNaN(t)?String(iso):t.getDate()+' '+MON[t.getMonth()]+' '+t.getFullYear()+' . '+pad(t.getHours())+':'+pad(t.getMinutes())};
+/* Every clock time is Brisbane's, as every day in the data is a Brisbane day. A viewer whose clock reads
+   differently is told so. Queensland keeps no daylight saving, so +10 is the fallback without Intl. */
+const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const BNE=(()=>{try{return new Intl.DateTimeFormat('en-AU',{timeZone:'Australia/Brisbane',year:'numeric',month:'numeric',day:'numeric',hour:'numeric',minute:'numeric',hourCycle:'h23'})}catch(e){return null}})();
+function bne(t){
+  let y,m,d,h,mi;
+  if(BNE){const o={};BNE.formatToParts(t).forEach(p=>{o[p.type]=+p.value});y=o.year;m=o.month-1;d=o.day;h=o.hour%24;mi=o.minute}
+  else{const b=new Date(t.getTime()+36e6);y=b.getUTCFullYear();m=b.getUTCMonth();d=b.getUTCDate();h=b.getUTCHours();mi=b.getUTCMinutes()}
+  const off=(Date.UTC(y,m,d,h,mi)-Math.floor(t.getTime()/6e4)*6e4)/6e4;   // Brisbane's offset from UTC, in minutes
+  return {y,m,d,h,mi,wd:new Date(Date.UTC(y,m,d)).getUTCDay(),zone:off===-t.getTimezoneOffset()?'':' Brisbane time'};
+}
+const fmtD=iso=>{
+  if(/T\d{2}:\d{2}.*(Z|[+-]\d{2}:?\d{2})$/.test(iso||'')){const t=new Date(iso);if(!isNaN(t)){const b=bne(t);return b.d+' '+MON[b.m]+' '+b.y}}   // a moment: its Brisbane day
+  const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');return m?(+m[3])+' '+MON[+m[2]-1]+' '+m[1]:String(iso);
+};
+const fmtRun=iso=>{const t=new Date(iso);if(isNaN(t))return String(iso);const b=bne(t);return b.d+' '+MON[b.m]+' . '+pad(b.h)+':'+pad(b.mi)+b.zone};
+const fmtRunLong=iso=>{const t=new Date(iso);if(isNaN(t))return String(iso);const b=bne(t);return b.d+' '+MON[b.m]+' '+b.y+' . '+pad(b.h)+':'+pad(b.mi)+b.zone};
+const stamp=t=>{if(!(t instanceof Date)||isNaN(t))return '';const b=bne(t);return DAYS[b.wd]+' '+b.d+' '+MON[b.m]+', '+pad(b.h)+':'+pad(b.mi)+b.zone};
+const sentence=s=>/[.!?…]$/.test(s)?s:s+'.';
 const plural=(n,one,many)=>n===1?one:(many||one+'s');
 const isWeb=u=>typeof u==='string'&&/^https?:\/\//i.test(u);
 const APPROX=new Set(['first_seen','year_inferred']);
@@ -587,12 +608,12 @@ const ROWS_AT_ONCE=300;
 // <session-module>
 /* Hosted mode: sign-in session, token refresh, and the single api() every request goes through.
    Everything it touches comes in through deps, so it can be tested in Node with fakes.
-   deps: {config, fetch, local, session, now(): ms, onSignedOut(message)} */
+   deps: {config, fetch, local, session, now(): ms, onSignedOut(message), onForbidden(message)} */
 function createSession(deps){
   const KEY='sold-radar-session',cfg=deps.config||{mode:'mac'};
   const hosted=cfg.mode==='hosted';
-  const SIGNED_OUT='Please sign in again.';
-  let inflight=null,notified=false;
+  const SIGNED_OUT='Please sign in again.',NO_ACCESS='This account does not have access.';
+  let inflight=null,notified=false,blocked=false;
   const stores=()=>[deps.local,deps.session].filter(Boolean);
   function read(){
     for(const st of stores()){
@@ -603,10 +624,10 @@ function createSession(deps){
   function write(st,s){try{st.setItem(KEY,JSON.stringify(s))}catch(e){}}
   function clear(){stores().forEach(st=>{try{st.removeItem(KEY)}catch(e){}})}
   function pack(j){return {access_token:j.access_token,refresh_token:j.refresh_token,expires_at:Math.floor(deps.now()/1000)+(+j.expires_in||3600)}}
-  async function authPost(path,body,token){
+  async function authPost(path,body,token,keep){
     const headers={'Content-Type':'application/json',apikey:cfg.key};
     if(token)headers.Authorization='Bearer '+token;
-    const res=await deps.fetch(cfg.auth+path,{method:'POST',headers,body:body?JSON.stringify(body):undefined});
+    const res=await deps.fetch(cfg.auth+path,{method:'POST',headers,body:body?JSON.stringify(body):undefined,keepalive:!!keep});
     let j=null;try{j=await res.json()}catch(e){}
     return {res,j};
   }
@@ -619,17 +640,31 @@ function createSession(deps){
     if(!res.ok||!j||!j.access_token||!j.refresh_token)throw new Error('Could not sign in. Try again.');
     clear();
     write(stay?deps.local:deps.session,pack(j));
-    notified=false;
+    notified=false;blocked=false;
   }
+  /* the tokens go at once; telling the server is best effort (keepalive, so a reload does not cut it off)
+     and never holds the caller up for more than a second */
   async function signOut(){
     const cur=read();
     clear();notified=true;
-    if(cur){try{await authPost('/logout',null,cur.s.access_token)}catch(e){}}
+    if(!cur)return;
+    let timer;
+    const told=authPost('/logout',null,cur.s.access_token,true).catch(()=>{});
+    await Promise.race([told,new Promise(r=>{timer=setTimeout(r,1000)})]);
+    clearTimeout(timer);
   }
   function lose(){
     clear();
     if(!notified){notified=true;deps.onSignedOut(SIGNED_OUT)}
     const e=new Error(SIGNED_OUT);e.status=401;e.signedOut=true;throw e;
+  }
+  /* 403: signed in, but this account is not let in. The session stays (signing in again would only come
+     back here); the page is told once, with the server's reason. */
+  async function forbid(res){
+    let j=null;try{j=await res.json()}catch(e){}
+    const msg=(j&&typeof j.error==='string'&&j.error)||NO_ACCESS;
+    if(!blocked){blocked=true;if(deps.onForbidden)deps.onForbidden(msg)}
+    const e=new Error(msg);e.status=403;e.forbidden=true;throw e;
   }
   /* one refresh at a time; refresh tokens rotate, so always keep the newest.
      If another tab rotated it first our attempt fails once: then use what that tab stored. */
@@ -642,7 +677,11 @@ function createSession(deps){
       if(res.ok&&j&&j.access_token&&j.refresh_token){
         const s=pack(j);write(cur?cur.st:deps.session,s);return s;
       }
-      if(res.status>=500)throw new Error('The server answered '+res.status);
+      /* only a refused token (400/401) ends the session; a busy or failing sign-in service (429, 5xx) is passing */
+      if(res.status!==400&&res.status!==401){
+        const e=new Error(res.status===429?'Too many sign-in checks just now. Try again in a minute.':'The sign-in service answered '+res.status+'. Try again shortly.');
+        e.status=res.status;throw e;
+      }
       const again=read();
       if(again&&again.s.refresh_token!==old.refresh_token)return again.s;
       return null;
@@ -670,7 +709,8 @@ function createSession(deps){
       if(!n)return lose();
       res=await send(path,opts,n.access_token);
     }
-    if(res.status===401||res.status===403)return lose();
+    if(res.status===401)return lose();
+    if(res.status===403)return forbid(res);
     return res;
   }
   return {hosted,api,signIn,signOut,signedIn:()=>!!read(),SIGNED_OUT};
@@ -681,7 +721,7 @@ const HOSTED=SR.mode==='hosted';
 const sess=createSession({config:SR,fetch:(u,o)=>fetch(u,o),now:()=>Date.now(),
   local:(()=>{try{return localStorage}catch(e){return null}})(),
   session:(()=>{try{return sessionStorage}catch(e){return null}})(),
-  onSignedOut:m=>showSignIn(m)});
+  onSignedOut:m=>showSignIn(m),onForbidden:m=>showBlocked(m)});
 const api=sess.api;
 
 /* ---------- filter state, mirrored in the URL with the API's parameter names ---------- */
@@ -777,7 +817,7 @@ function renderTags(){
   subInput.placeholder=state.suburbs.length?'Add a suburb':'All suburbs';
 }
 function openList(){
-  if(!meta)return;
+  if(!meta){needMeta();return}
   const q=subInput.value.trim().toLowerCase();
   subShown=meta.suburbs.filter(s=>!state.suburbs.includes(s.name)&&s.name.toLowerCase().includes(q));
   if(q)subShown.sort((a,b)=>(b.name.toLowerCase().startsWith(q))-(a.name.toLowerCase().startsWith(q)));
@@ -820,7 +860,10 @@ $('#sub-box').addEventListener('mousedown',e=>{if(e.target===e.currentTarget){e.
 
 /* other inputs */
 let typeTimer=null;
-function debounced(){clearTimeout(typeTimer);typeTimer=setTimeout(run,250)}
+function stopTyping(){clearTimeout(typeTimer);typeTimer=null}
+function debounced(){stopTyping();typeTimer=setTimeout(()=>{typeTimer=null;run()},250)}
+/* leaving a list view while a typed value still waits for its query: put it in this view's URL, so Back brings it back */
+function settleTyping(){if(typeTimer){stopTyping();syncUrl()}}
 $('#type').addEventListener('change',e=>{state.type=e.target.value;run()});
 COUNTS.forEach(k=>{
   $('#'+k).addEventListener('change',e=>{state[k]=e.target.value;run()});
@@ -831,7 +874,7 @@ $('#months').addEventListener('change',e=>{state.months=e.target.value;run()});
 $('#include_undated').addEventListener('change',e=>{state.include_undated=e.target.checked;run()});
 
 /* ---------- querying ---------- */
-let seq=0,lastResult=null;
+let seq=0;
 function syncUrl(){
   const qs=toParams(state).toString();
   if(view==='sold')history.replaceState(null,'',location.pathname+(qs?'?'+qs:''));
@@ -842,14 +885,16 @@ function syncUrl(){
 async function getJSON(url){
   const r=await api(url,{cache:'no-store'});
   let body=null;try{body=await r.json()}catch(e){}
-  if(!r.ok||!body||body.error)throw new Error(body&&body.error?body.error:'The server answered '+r.status);
+  if(!r.ok||!body||body.error){const e=new Error(body&&body.error?body.error:'The server answered '+r.status);e.status=r.status;throw e}
   return body;
 }
 let lastSoldQs=null;
 function run(){
   if(view==='market')return runMarket();
   if(view==='forsale')return runForsale();   // the filter bar is shared: it drives whichever list is showing
-  clearTimeout(typeTimer);
+  stopTyping();
+  if(view!=='sold')return;                    // the home page, Shortlist and Estimate have no filter query
+  needMeta();
   soldStarted=true;
   const qs=syncUrl();lastSoldQs=qs;
   const my=++seq;
@@ -857,15 +902,28 @@ function run(){
   getJSON('/api/query'+(qs?'?'+qs:'')).then(j=>{
     if(my!==seq)return;
     document.body.classList.remove('busy');
-    lastResult=j;render(j);
+    render(j);
   },err=>{
     if(my!==seq)return;
     document.body.classList.remove('busy');
-    showError(friendly(err));
+    lastSoldQs=null;   // the next visit to Sold asks again
+    soldFailed(friendly(err));
   });
 }
-function showError(msg){
+function showError(msg,retry){
   const note=$('#note');note.replaceChildren(el('span','errline',msg));
+  if(retry){const b=el('button','lnk','Try again');b.type='button';b.onclick=retry;note.append(' ',b)}
+}
+/* the query failed: nothing left on screen may pass for an answer to the filters now chosen */
+function soldFailed(msg){
+  $('#median').textContent='—';
+  const basis=$('#basis');basis.className='errline';basis.textContent="Couldn't load these sales";
+  $('#summary').textContent=describe(Object.assign(stateAsFilters(),{months:state.months==='all'?null:+state.months,include_undated:state.include_undated}));
+  ['#typ','#lo','#hi','#pm'].forEach(s=>{$(s).textContent='—'});
+  $('#readout').textContent='';
+  $('#sec-lab').textContent='Matching sales';
+  soldList=null;$('#list').replaceChildren();
+  showError(msg,()=>run());
 }
 
 /* ---------- rendering ---------- */
@@ -885,11 +943,12 @@ function describe(f,noDate){
   return p.join(' · ');
 }
 function render(j){
-  const s=j.summary,empty=!!meta&&meta.total_sales===0,matched=j.sales.length;
+  /* the list is cut at 500 by the server; the summary's counts are the true total */
+  const s=j.summary,empty=!!meta&&meta.total_sales===0,matched=Math.max((s.count_priced||0)+(s.count_unpriced||0),j.sales.length);
   const basis=$('#basis');basis.className='';
   if(empty){$('#median').textContent='no data yet';basis.textContent='Run: python -m soldradar collect';basis.className='cmd'}
   else if(s.median!=null){$('#median').textContent=aud(s.median);basis.textContent='Median of '+s.count_priced.toLocaleString('en-AU')+' '+plural(s.count_priced,'sale')}
-  else if(matched){$('#median').textContent='no prices';basis.textContent=matched+' '+plural(matched,'sale')+' matched but none had a usable price'}
+  else if(matched){$('#median').textContent='no prices';basis.textContent=matched.toLocaleString('en-AU')+' '+plural(matched,'sale')+' matched but none had a usable price'}
   else{$('#median').textContent='no sales';basis.textContent='Nothing matches these filters'}
   $('#summary').textContent=describe(j.filters);
   $('#typ').textContent=s.p25!=null&&s.p75!=null?short(s.p25)+' – '+short(s.p75):'—';
@@ -899,7 +958,7 @@ function render(j){
   renderNote(j,empty);
   $('#readout').textContent=empty?'':(j.readout||'');
   $('#sec-lab').textContent='Matching sales'+(matched?' · '+matched.toLocaleString('en-AU'):'');
-  renderList(j.sales,j.filters,empty);
+  renderList(j.sales,j.filters,empty,matched);
 }
 function renderNote(j,empty){
   const s=j.summary,note=$('#note');note.replaceChildren();
@@ -945,30 +1004,35 @@ function street(sale){
   }
   return a;
 }
-let pendingRows=[],rowCtx=null;
-function renderList(sales,filters,empty){
-  const list=$('#list');list.replaceChildren();
+/* how one list draws its rows: each list keeps its own, so rows added later never borrow another list's */
+const listCtx=anyType=>({anyType,labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)});
+const cutLine=(shown,total,noun)=>el('div','cut f12','Only the first '+shown.toLocaleString('en-AU')+' of '+total.toLocaleString('en-AU')+' '+noun+' are listed. Narrow the filters to see the rest.');
+let soldList=null;   // the Sold list: {rows still to show, shown, total that matched, ctx}
+function renderList(sales,filters,empty,total){
+  const list=$('#list');list.replaceChildren();soldList=null;
   if(!sales.length){const r=el('div','row');r.append(el('div','a f24 muted',empty?'No sales collected yet':'No sales match'));list.append(r);return}
-  rowCtx={anyType:filters.property_type==null,labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)};
-  pendingRows=sales.slice();
+  soldList={rows:sales.slice(),shown:0,total:Math.max(total||0,sales.length),ctx:listCtx(filters.property_type==null)};
   appendRows();
 }
 function appendRows(){
-  const list=$('#list');const old=list.querySelector('.more');if(old)old.remove();
-  const frag=document.createDocumentFragment();
-  pendingRows.splice(0,ROWS_AT_ONCE).forEach(s=>frag.append(rowFor(s)));
-  if(pendingRows.length){
-    const b=el('button','more f12','Show '+Math.min(ROWS_AT_ONCE,pendingRows.length).toLocaleString('en-AU')+' more · '+pendingRows.length.toLocaleString('en-AU')+' not shown yet');b.type='button';
-    b.onclick=()=>{const first=pendingRows[0];appendRows();const r=list.querySelector(`[data-id="${first.sale_id}"]`);if(r)r.focus()};
+  const L=soldList,list=$('#list');if(!L)return;
+  list.querySelectorAll('.more,.cut').forEach(x=>x.remove());
+  const frag=document.createDocumentFragment(),page=L.rows.splice(0,ROWS_AT_ONCE);
+  L.shown+=page.length;
+  page.forEach(s=>frag.append(rowFor(s,L.ctx)));
+  if(L.rows.length){
+    const b=el('button','more f12','Show '+Math.min(ROWS_AT_ONCE,L.rows.length).toLocaleString('en-AU')+' more · '+(L.total-L.shown).toLocaleString('en-AU')+' not shown yet');b.type='button';
+    b.onclick=()=>{const first=L.rows[0];appendRows();const r=list.querySelector(`[data-id="${first.sale_id}"]`);if(r)r.focus()};
     frag.append(b);
   }
+  if(L.shown+L.rows.length<L.total)frag.append(cutLine(L.shown+L.rows.length,L.total,'sales'));
   list.append(frag);
 }
-function featureNames(f){
+function featureNames(f,ctx){
   const names=Object.keys(f||{});
-  return names.sort((a,b)=>{const ia=rowCtx.order.indexOf(a),ib=rowCtx.order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)}).map(n=>rowCtx.labels[n]||n.replace(/_/g,' '));
+  return names.sort((a,b)=>{const ia=ctx.order.indexOf(a),ib=ctx.order.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib)}).map(n=>ctx.labels[n]||n.replace(/_/g,' '));
 }
-function rowFor(s){
+function rowFor(s,ctx){
   const counted=s.price!=null&&['shown','hidden','rounded'].includes(s.price_status);
   const r=el('a','row'+(counted?'':' np'));r.href='#';r.dataset.id=s.sale_id;
   r.onclick=e=>{e.preventDefault();openSale(s.sale_id)};
@@ -977,11 +1041,11 @@ function rowFor(s){
   const a=el('div','a');a.append(el('div','f24',street(s)),el('small',null,[s.suburb,s.agency].filter(Boolean).join(' · ')));
   const sz=el('div','s f12');
   const counts=[[s.beds,'bed'],[s.baths,'bath'],[s.cars,'car']].filter(x=>x[0]!=null).map(x=>x[0]+' '+x[1]);
-  if(rowCtx.anyType&&s.property_type)counts.unshift(TYPE_LABEL[s.property_type]||s.property_type);
+  if(ctx.anyType&&s.property_type)counts.unshift(TYPE_LABEL[s.property_type]||s.property_type);
   sz.append(document.createTextNode(counts.join(' · ')));
   const land=[s.land_m2?area(s.land_m2):null,s.yard?s.yard+' yard':null].filter(Boolean).join(' · ');
   if(land){if(counts.length)sz.append(el('br'));sz.append(el('span','muted',land))}
-  const f=el('div','f f12 muted',featureNames(s.features).join(' · '));
+  const f=el('div','f f12 muted',featureNames(s.features,ctx).join(' · '));
   const p=el('div','p');
   if(s.price!=null&&s.price_status!=='withheld')p.append(el('div','f24',aud(s.price)));else p.append(el('div','f24','Withheld'));
   if(PRICE_FLAG[s.price_status]&&s.price!=null)p.append(el('small','flag',PRICE_FLAG[s.price_status]));
@@ -993,15 +1057,21 @@ function rowFor(s){
 
 /* ---------- overlays ---------- */
 const PAGE_PARTS=['#hdr','#main','#ftr','#ftr-est','#ftr-fs','#ftr-host'];
-let openOv=null,returnTo=null;
+/* An open overlay has its own history entry (same URL), so Back on a phone closes it and stays in the view.
+   ovEntry: that entry is the current one. Closing by button or Escape steps back off it (ovPopping marks
+   our own step); a view opened from inside the overlay takes the entry over instead (see pushUrl). */
+let openOv=null,returnTo=null,ovEntry=false,ovBase=null,ovPopping=false;
 function showOverlay(ov,back){
+  if(typeTimer)run();   // a typed filter still waiting runs now, so the page underneath matches its URL
   if(openOv&&openOv!==ov)openOv.hidden=true;
   returnTo=back;openOv=ov;ov.hidden=false;ov.scrollTop=0;
   PAGE_PARTS.forEach(s=>$(s).inert=true);
   document.documentElement.style.overflow='hidden';
   ov.querySelector('.close').focus();
+  if(!ovEntry){ovBase=location.href;history.pushState({ov:1},'',location.href);ovEntry=true}
 }
-function closeOverlay(){
+/* how: 'pop' when Back has already left the overlay's entry; 'nav' when a new view is about to take it over */
+function closeOverlay(how){
   if(!openOv)return;
   openOv.hidden=true;openOv=null;saleSeq++;
   PAGE_PARTS.forEach(s=>$(s).inert=false);
@@ -1010,8 +1080,14 @@ function closeOverlay(){
   if(t&&t.saleId!=null)t=$(`#list [data-id="${t.saleId}"]`)||$('#list a.row')||$('#median');
   if(t&&t.isConnected)t.focus({preventScroll:false});
   returnTo=null;
+  if(ovEntry&&how!=='nav'){ovEntry=false;if(how!=='pop'){ovPopping=true;history.back()}}
 }
-document.querySelectorAll('.ov .close').forEach(b=>b.onclick=closeOverlay);
+/* every move to another view: a new history entry, or the closed overlay's spare entry when there is one */
+function pushUrl(url){
+  if(ovEntry&&!openOv){ovEntry=false;history.replaceState(null,'',url)}
+  else history.pushState(null,'',url);
+}
+document.querySelectorAll('.ov .close').forEach(b=>b.onclick=()=>closeOverlay());
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&openOv){e.preventDefault();closeOverlay()}});
 
 function kv(key,value,flag){
@@ -1027,9 +1103,12 @@ function kvGroup(title,rows){
 
 let saleSeq=0;
 function openSale(id,back){
+  showOverlay($('#ov-sale'),back||{saleId:id});
+  loadSale(id);
+}
+function loadSale(id){
   const body=$('#sale-body');
   body.replaceChildren(loadingBlock('sale-h','Loading'));
-  showOverlay($('#ov-sale'),back||{saleId:id});
   const my=++saleSeq;
   const prof=getJSON('/api/profile/'+encodeURIComponent(id)).catch(()=>null);
   getJSON('/api/sale/'+encodeURIComponent(id)).then(s=>{
@@ -1038,15 +1117,18 @@ function openSale(id,back){
     prof.then(p=>{if(my===saleSeq&&p)body.append(profileSect(p.groups,p.not_measured))});
   },err=>{
     if(my!==saleSeq)return;
-    body.replaceChildren(loadingBlock('sale-h','Not found'));
-    body.append(errorBlock(err.message));
+    body.replaceChildren(loadingBlock('sale-h',err.status===404?'Not found':"Couldn't load"));
+    body.append(errorBlock(friendly(err),err.status===404?null:()=>loadSale(id)));
   });
 }
 function loadingBlock(hid,text){
   const g=el('div','grid page-h');const h=el('h2','f90 muted',text);h.id=hid;g.append(h);return g;
 }
-function errorBlock(msg){
-  const g=el('div','grid sect');g.append(el('div','lab f12','Error'));const b=el('div','body f12 errline',msg);g.append(b);return g;
+function errorBlock(msg,retry){
+  const g=el('div','grid sect');g.append(el('div','lab f12','Error'));
+  const b=el('div','body');b.append(el('div','f12 errline',msg));
+  if(retry){const t=el('button','go inl f12','Try again');t.type='button';t.onclick=retry;b.append(t)}
+  g.append(b);return g;
 }
 function renderSale(s){
   const body=$('#sale-body');body.replaceChildren();
@@ -1060,12 +1142,12 @@ function renderSale(s){
   sub.append(el('p','muted',flags.length?flags.join(' · '):'Counted in the figures'));
   if(s.address&&s.suburb&&!HOSTED){
     const go=el('button','go inl f12','Estimate this home today');go.type='button';
-    go.onclick=()=>{closeOverlay();estimateHome(street(s),s.suburb)};
+    go.onclick=()=>{closeOverlay('nav');estimateHome(street(s),s.suburb)};
     const p=el('p');p.append(go);sub.append(p);
   }
   if(s.sale_id!=null){
     const key='sale:'+s.sale_id,label=street(s)||'this home';
-    const hp=el('button','go inl f12','Home page');hp.type='button';hp.onclick=()=>{closeOverlay();goHome(key)};
+    const hp=el('button','go inl f12','Home page');hp.type='button';hp.onclick=()=>{closeOverlay('nav');goHome(key)};
     const p=el('p');p.append(hp);
     const sb=el('button','go inl f12','☆ Star this home');sb.type='button';sb.hidden=true;sb.style.marginLeft='8px';
     const paint=on=>starLabel(sb,on);
@@ -1146,7 +1228,7 @@ function renderSources(){
 }
 $('#open-sources').onclick=e=>{
   renderSources();showOverlay($('#ov-sources'),e.currentTarget);
-  getJSON('/api/meta').then(m=>{meta=m;renderRunInfo();if(openOv===$('#ov-sources'))renderSources()},()=>{});
+  getJSON('/api/meta').then(m=>{const first=!meta;meta=m;if(first)metaArrived();else renderRunInfo();if(openOv===$('#ov-sources'))renderSources()},()=>{});
 };
 
 /* ---------- header actions ---------- */
@@ -1593,8 +1675,7 @@ function stateAsFilters(){
     price_min:n('price_min'),price_max:n('price_max'),features:state.features,yard:state.yard};
 }
 function runForsale(){
-  loadAdded();
-  clearTimeout(typeTimer);
+  stopTyping();needMeta();
   const my=++fsSeq;
   syncUrl();
   const qs=fsParams();qs.delete('view');
@@ -1607,9 +1688,23 @@ function runForsale(){
   },err=>{
     if(my!==fsSeq)return;
     document.body.classList.remove('fbusy');
-    const r=el('div','row');r.append(el('div','a f24 errline',friendly(err)));
-    $('#fs-list').replaceChildren(r);
+    $('#fs-count').textContent='—';
+    const b=$('#fs-basis');b.className='errline';b.textContent="Couldn't load these homes";
+    $('#fs-summary').textContent=describe(stateAsFilters(),true);
+    $('#fs-lab').textContent='Homes for sale';
+    $('#fs-list').replaceChildren(failRow(friendly(err),runForsale));
   });
+}
+/* a list that could not load: the reason, and a way to ask again */
+function failRow(msg,retry){
+  const r=el('div','row');r.append(el('div','a f24 errline',msg));
+  const p=el('div','p'),b=el('button','lnk f12','Try again');b.type='button';b.onclick=()=>retry();p.append(b);r.append(p);
+  return r;
+}
+function failBlock(msg,retry){
+  const g=el('div','grid'),p=el('div','sl-empty');p.append(el('p','f24 errline',msg));
+  const b=el('button','go inl f12','Try again');b.type='button';b.onclick=()=>retry();p.append(b);
+  g.append(p);return g;
 }
 function renderFsFoot(cov,last){
   const read=$('#ft-fs-read'),miss=$('#ft-fs-missing');
@@ -1621,50 +1716,72 @@ function renderFsFoot(cov,last){
 function renderForsale(j){
   const n=j.count,none=!j.coverage||!j.coverage.total;
   $('#fs-count').textContent=n?n.toLocaleString('en-AU')+' '+plural(n,'home'):'no homes';
+  $('#fs-basis').className='';
   $('#fs-basis').textContent=none?'No for-sale run has finished yet':'For sale or under offer'+(fs.status==='under_offer'?' · under offer only':fs.status==='dropped'?' · price dropped only':'')+fsUnpricedWords(j);
   $('#fs-summary').textContent=describe(stateAsFilters(),true);
   $('#fs-lab').textContent='Homes for sale'+(n?' · '+n.toLocaleString('en-AU'):'');
   renderFsFoot(j.coverage,j.last_run);
   const list=$('#fs-list');list.replaceChildren();
   if(!j.homes.length){const r=el('div','row');r.append(el('div','a f24 muted',none?'No homes collected yet':'No homes match'));list.append(r);return}
-  rowCtx={anyType:state.type==='any',labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)};
   const frag=document.createDocumentFragment();
   j.homes.forEach(h=>frag.append(fsRow(h)));
+  if(j.homes.length<n)frag.append(cutLine(j.homes.length,n,'homes'));   // the server sends at most 500
   list.append(frag);
 }
 const mil=v=>short(v);
 
 /* ---------- homes added by hand (the hosted site only: the list lives in its database) ---------- */
 const ADD_STATUS={for_sale:'For sale',under_offer:'Under offer',sold:'Sold'};
-let addLoaded=false;
+let addFilled=false,addSeq=0;
 function addSay(msg,cls){const m=$('#add-msg');m.className='q'+(cls?' '+cls:'');m.textContent=msg||''}
 function addSyncStatus(){
   const sold=$('#add-status').value==='sold';
   document.querySelectorAll('#add-form [data-when]').forEach(f=>{f.hidden=(f.dataset.when==='sold')!==sold});
 }
+/* the suburb suggestions, once /api/meta has arrived */
+function fillAddSuburbs(){
+  if(addFilled||!meta||!HOSTED)return;
+  addFilled=true;
+  const dl=$('#add-suburbs');meta.suburbs.forEach(x=>{const o=document.createElement('option');o.value=x.name;dl.append(o)});
+}
+/* re-confirming posts the stored row again, as the form would: the same address and suburb update that row */
+const ADD_FIELDS=['source_url','address','suburb','postcode','status','property_type','asking_text','listed_date','sold_price','sold_date','beds','baths','cars','land_m2','agency'];
+const reconfirmBody=h=>Object.assign(Object.fromEntries(ADD_FIELDS.map(k=>[k,h[k]==null?null:h[k]])),{confirmed:true});
 function addRow(h,today){
-  const w=el('div','add-row'),t=el('div','f24');
-  const a=document.createElement('a');a.href=h.source_url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=h.address+', '+h.suburb;t.append(a);
+  const w=el('div','add-row'),t=el('div','f24'),where=h.address+', '+h.suburb;
+  if(isWeb(h.source_url)){const a=el('a',null,where);a.href=h.source_url;a.target='_blank';a.rel='noopener noreferrer';t.append(a)}
+  else t.textContent=where;
   const price=h.status==='sold'?('Sold'+(h.sold_price?' '+aud(h.sold_price):', price not given')+(h.sold_date?' on '+fmtD(h.sold_date):'')):(h.asking_text||'No price given');
   const age=Math.max(0,Math.round((Date.parse(today)-Date.parse(h.checked_on))/864e5));
   const bits=[ADD_STATUS[h.status]||h.status,price,h.listed_date?'listed '+fmtD(h.listed_date):null,h.agency].filter(Boolean);
   const check=el('small',(!h.verified||age>=7)?'warnline':null,(h.verified?'Confirmed from the listing page':'Not confirmed')+' · checked '+(age===0?'today':age+' '+plural(age,'day')+' ago')+(age>=7?' · re-confirm it or it drops out after 21 days':''));
-  const rm=el('button','chip','Remove');rm.type='button';
-  rm.onclick=async()=>{rm.disabled=true;try{await postJSON('/api/added/remove',{id:h.id});addSay('Removed '+h.address+'. It leaves the list after the next morning update.');loadAdded()}catch(e){rm.disabled=false;addSay(friendly(e),'errline')}};
-  w.append(t,el('small',null,bits.join(' · ')),check,rm);return w;
-}
-function loadAdded(){
-  if(SR.mode!=='hosted')return;
-  $('#add-sect').hidden=false;
-  if(!addLoaded){
-    addLoaded=true;
-    const dl=$('#add-suburbs');(meta?meta.suburbs:[]).forEach(x=>{const o=document.createElement('option');o.value=x.name;dl.append(o)});
+  const acts=el('div','acts');
+  if(!(h.verified&&age===0)){
+    const rc=el('button','chip','Re-confirm');rc.type='button';
+    rc.title='Only when the listing page still shows these details';
+    rc.setAttribute('aria-label','Re-confirm '+where+': the listing page still shows these details');
+    rc.onclick=async()=>{rc.disabled=true;addSay('Saving…');try{await postJSON('/api/added',reconfirmBody(h));addSay('Re-confirmed '+where+'.');loadAdded()}catch(e){rc.disabled=false;addSay(friendly(e),'errline')}};
+    acts.append(rc);
   }
+  const rm=el('button','chip','Remove');rm.type='button';
+  rm.onclick=async()=>{rm.disabled=true;try{await postJSON('/api/added/remove',{id:h.id});addSay('Removed '+h.address+'. It leaves the list after the next update.');loadAdded()}catch(e){rm.disabled=false;addSay(friendly(e),'errline')}};
+  acts.append(rm);
+  w.append(t,el('small',null,bits.join(' · ')),check,acts);return w;
+}
+/* once per visit to For sale, and after an add, re-confirm or remove; only the newest answer is drawn */
+function loadAdded(){
+  if(!HOSTED)return;
+  $('#add-sect').hidden=false;fillAddSuburbs();
+  const my=++addSeq;
   getJSON('/api/added').then(j=>{
+    if(my!==addSeq)return;
     const box=$('#add-list');box.replaceChildren();
     if(j.homes.length)box.append(el('p','f12 muted add-h',j.homes.length+' of '+j.max+' added by hand'));
     j.homes.forEach(h=>box.append(addRow(h,j.today)));
-  },()=>{});
+  },e=>{
+    if(my!==addSeq||e.signedOut||e.forbidden)return;
+    $('#add-list').replaceChildren(el('p','q errline add-h',"Couldn't load the homes added by hand. "+sentence(friendly(e))));
+  });
 }
 $('#add-status').addEventListener('change',addSyncStatus);
 $('#add-form').addEventListener('submit',async e=>{
@@ -1677,7 +1794,7 @@ $('#add-form').addEventListener('submit',async e=>{
   const go=$('#add-go');go.disabled=true;addSay('Saving…');
   try{
     const j=await postJSON('/api/added',body);
-    addSay((j.updated?'Updated ':'Added ')+j.home.address+', '+j.home.suburb+'. '+(sold?'A sold home is kept on file but is not listed for sale.':'It joins the list, with an estimate where one can be made, after the next morning update.'));
+    addSay((j.updated?'Updated ':'Added ')+j.home.address+', '+j.home.suburb+'. '+(sold?'A sold home is kept on file but is not listed for sale.':'It joins the list, with an estimate where one can be made, after the next update.'));
     f.reset();addSyncStatus();loadAdded();
   }catch(err){addSay(friendly(err),'errline')}
   go.disabled=false;
@@ -1689,20 +1806,25 @@ function fsUnpricedWords(j){
   const k=j.homes.filter(h=>h.asking_price==null).length;
   return k?' · '+k.toLocaleString('en-AU')+' with no advertised price':'';
 }
-/* the estimate cell of a row: the figure, its range, and how the asking price compares */
-function fsEstimateCell(h){
-  const e=h.estimate,cell=el('div','e');
-  if(!e){cell.append(el('div','f24 none','No estimate yet'));return cell}
+/* the estimate figure of a row (For sale and Shortlist): true when there is a figure to compare against */
+function estimateFigure(cell,e){
+  if(!e){cell.append(el('div','f24 none','No estimate yet'));return false}
   if(e.status==='out_of_scope'||e.status==='not_ready'||e.status==='error'){
     cell.append(el('div','f24 none','No estimate'),el('small',null,e.reason||(e.status==='out_of_scope'?'Outside what this tool estimates':e.status==='not_ready'?'The pricing model is not ready':'The estimate failed')));
-    return cell;
+    return false;
   }
   if(e.middle!=null){
     cell.append(el('div','f24','We estimate '+mil(e.middle)));
     if(e.low!=null&&e.high!=null)cell.append(el('small',null,mil(e.low)+'–'+mil(e.high)));
   }else if(e.low!=null&&e.high!=null){
     cell.append(el('div','f24','We estimate '+mil(e.low)+'–'+mil(e.high)),el('small',null,'Low confidence · a range only'));
-  }else{cell.append(el('div','f24 none','No estimate'),el('small',null,'Comparable sales only'));return cell}
+  }else{cell.append(el('div','f24 none','No estimate'),el('small',null,'Comparable sales only'));return false}
+  return true;
+}
+/* the estimate cell of a For-sale row: the figure, its range, and how the asking price compares */
+function fsEstimateCell(h){
+  const cell=el('div','e');
+  if(!estimateFigure(cell,h.estimate))return cell;
   const g=h.gap_percent;
   if(h.asking_price==null)cell.append(el('small',h.range_fit==='outside'?'gap-above':null,FIT_WORDS[h.range_fit]||'no asking price'));
   else if(g!=null)cell.append(el('small',g>0?'gap-above':g<0?'gap-below':null,g===0?'at the estimate':Math.abs(g)+'% '+(g>0?'above':'below')));
@@ -1746,8 +1868,8 @@ const HOME_STATUS={for_sale:'For sale',under_offer:'Under offer',sold:'Sold',gon
 function flushNote(){if(noteCtl)noteCtl.save()}
 addEventListener('pagehide',()=>{if(noteCtl)noteCtl.leave()});
 function goHome(key){
-  flushNote();
-  history.pushState(null,'',homeHref(key));
+  flushNote();settleTyping();clearTimeout(estTimer);
+  pushUrl(homeHref(key));
   setView('home');scrollTo(0,0);loadHome(key);
 }
 function featLabels(f){
@@ -1761,8 +1883,8 @@ function loadHome(key){
   $('#home-star').hidden=true;$('#home-body').replaceChildren();
   getJSON('/api/home/'+encodeURIComponent(key)).then(j=>{if(my===homeSeq)renderHome(key,j)},err=>{
     if(my!==homeSeq)return;
-    $('#home-h').textContent='Not found';
-    $('#home-body').replaceChildren(errorBlock(friendly(err)));
+    $('#home-h').textContent=err.status===404?'Not found':"Couldn't load";
+    $('#home-body').replaceChildren(errorBlock(friendly(err),err.status===404?null:()=>loadHome(key)));
   });
 }
 function homeSect(lab,node,sub){
@@ -1877,8 +1999,8 @@ function renderHome(key,j){
   const ss=j.suburb_sales||[];
   if(h.suburb){
     const lab=el('div','sec-lab f12','Recent sales in '+h.suburb+' · last 3 months, any size'+(ss.length?' · '+ss.length:'')),box=el('div','list');
-    rowCtx={anyType:true,labels:Object.fromEntries((meta?meta.features:[]).map(x=>[x.name,x.label])),order:(meta?meta.features:[]).map(x=>x.name)};
-    ss.forEach(s=>{const r=rowFor(s);r.onclick=e=>{e.preventDefault();openSale(s.sale_id,r)};box.append(r)});
+    const ctx=listCtx(true);
+    ss.forEach(s=>{const r=rowFor(s,ctx);r.onclick=e=>{e.preventDefault();openSale(s.sale_id,r)};box.append(r)});
     if(!ss.length){const r=el('div','row');r.append(el('div','a f24 muted','No sales in the last 3 months'));box.append(r)}
     body.append(lab,box);
   }
@@ -1925,14 +2047,12 @@ function slEstimate(h){
   const e=h.estimate,cell=el('div','e');
   if(h.status==='sold'){
     if(e&&e.middle!=null)cell.append(el('div','f24','We estimated '+mil(e.middle)));
+    else if(e&&e.low!=null&&e.high!=null)cell.append(el('div','f24','We estimated '+mil(e.low)+'–'+mil(e.high)));
     if(h.gap_percent!=null)cell.append(el('small',h.gap_percent>0?'gap-above':h.gap_percent<0?'gap-below':null,h.gap_percent===0?'sold at the estimate':'Sold '+Math.abs(h.gap_percent)+'% '+(h.gap_percent>0?'above':'below')+' the estimate'));
     if(!cell.children.length)cell.append(el('div','f24 none','No estimate kept'));
     return cell;
   }
-  if(e&&e.middle!=null){
-    cell.append(el('div','f24','We estimate '+mil(e.middle)));
-    if(e.low!=null&&e.high!=null)cell.append(el('small',null,mil(e.low)+'–'+mil(e.high)));
-  }else{cell.append(el('div','f24 none','No estimate'));if(e&&e.reason)cell.append(el('small',null,e.reason))}
+  estimateFigure(cell,e);
   return cell;
 }
 function slState(h){
@@ -1975,7 +2095,7 @@ function loadShortlist(){
   const my=++shortSeq,body=$('#short-body');
   getJSON('/api/shortlist').then(j=>{if(my===shortSeq)renderShortlist(j)},err=>{
     if(my!==shortSeq)return;
-    const g=el('div','grid');g.append(el('p','f24 errline',friendly(err)));body.replaceChildren(g);
+    body.replaceChildren(failBlock(friendly(err),loadShortlist));
   });
 }
 function renderShortlist(j){
@@ -1987,9 +2107,9 @@ function renderShortlist(j){
   }
   const first=!j.since;
   if(!first){
-    const lab=el('div','sec-lab f12',(j.changes.length?'Changes since your last visit':'Nothing has changed since')+' ('+fmtD(j.since)+')'+(j.changes.length?' · '+j.changes.length:''));
+    const lab=el('div','sec-lab f12','Changes since your last visit ('+fmtD(j.since)+')'+(j.changes.length?' · '+j.changes.length:''));
     const box=el('div','list');
-    if(!j.changes.length){const r=el('div','row');r.append(el('div','a f24 muted','Nothing has changed since '+fmtD(j.since)));box.append(r)}
+    if(!j.changes.length){const r=el('div','row');r.append(el('div','a f24 muted','Nothing has changed'));box.append(r)}
     j.changes.forEach(c=>{
       const r=el('div','row hist sl-ch'),a=el('div','a');
       const t=el('div','f24');t.append(homeLink(c.home_key,null,c.address||'This home'));
@@ -2157,7 +2277,7 @@ function renderMarket(j){
 let mkSeq=0;
 function marketParams(){return new URLSearchParams([['view','market'],...toParams(state)])}
 function runMarket(){
-  clearTimeout(typeTimer);
+  stopTyping();needMeta();
   const my=++mkSeq;
   syncUrl();
   const qs=marketParams();qs.delete('view');
@@ -2169,7 +2289,8 @@ function runMarket(){
   },err=>{
     if(my!==mkSeq)return;
     document.body.classList.remove('fbusy');
-    const g=el('div','grid');g.append(el('p','f24 errline',friendly(err)));$('#market-body').replaceChildren(g);
+    $('#mk-summary').textContent=describe(stateAsFilters(),true);   // the filters asked about, not the last answer's
+    $('#market-body').replaceChildren(failBlock(friendly(err),runMarket));
   });
 }
 
@@ -2191,8 +2312,8 @@ function setView(v){
 }
 function goEstimateView(){
   if(HOSTED)return;
-  if(view!=='estimate'){clearTimeout(typeTimer);history.pushState(null,'',location.pathname+'?'+estToParams());setView('estimate')}
-  else syncEstUrl();
+  if(view!=='estimate'){settleTyping();pushUrl(location.pathname+'?'+estToParams());setView('estimate')}
+  else{if(!openOv)ovEntry=false;syncEstUrl()}   // from a sale overlay over this view: its entry becomes this estimate's
   scrollTo(0,0);
 }
 $('#to-est').onclick=()=>{
@@ -2203,29 +2324,29 @@ $('#to-est').onclick=()=>{
 };
 $('#to-sold').onclick=()=>{
   if(view==='sold')return;
-  clearTimeout(estTimer);
+  clearTimeout(estTimer);settleTyping();
   const qs=toParams(state).toString();
-  history.pushState(null,'',location.pathname+(qs?'?'+qs:''));
+  pushUrl(location.pathname+(qs?'?'+qs:''));
   setView('sold');syncControls();scrollTo(0,0);
   if(!soldStarted||qs!==lastSoldQs)run();
 };
 $('#to-fs').onclick=()=>{
   if(view==='forsale')return;
-  clearTimeout(estTimer);
+  clearTimeout(estTimer);settleTyping();
   setView('forsale');syncControls();syncFsControls();
-  history.pushState(null,'',location.pathname+'?'+fsParams());
-  scrollTo(0,0);runForsale();
+  pushUrl(location.pathname+'?'+fsParams());
+  scrollTo(0,0);runForsale();loadAdded();
 };
 $('#to-short').onclick=()=>{
   if(view==='shortlist')return;
-  clearTimeout(estTimer);
-  setView('shortlist');history.pushState(null,'',location.pathname+'?view=shortlist');scrollTo(0,0);loadShortlist();
+  clearTimeout(estTimer);settleTyping();
+  setView('shortlist');pushUrl(location.pathname+'?view=shortlist');scrollTo(0,0);loadShortlist();
 };
 $('#to-market').onclick=()=>{
   if(view==='market')return;
-  clearTimeout(estTimer);
+  clearTimeout(estTimer);settleTyping();
   setView('market');syncControls();
-  history.pushState(null,'',location.pathname+'?'+marketParams());
+  pushUrl(location.pathname+'?'+marketParams());
   scrollTo(0,0);runMarket();
 };
 /* "Estimate this home today": the Estimate view for a stored sale's address; the server pre-fills from that sale */
@@ -2242,7 +2363,7 @@ function applyUrl(){
     setView('estimate');renderEstForm();
     if(est.suburb){estPending();runEstimate()}else renderEstEmpty();
   }else if(p.get('view')==='forsale'){
-    state=fromParams(p);fsFromParams(p);setView('forsale');syncControls();syncFsControls();runForsale();
+    state=fromParams(p);fsFromParams(p);setView('forsale');syncControls();syncFsControls();runForsale();loadAdded();
   }else if(p.get('view')==='home'&&p.get('key')){
     setView('home');loadHome(p.get('key'));
   }else if(p.get('view')==='shortlist'){
@@ -2253,9 +2374,49 @@ function applyUrl(){
     state=fromParams(p);setView('sold');syncControls();run();
   }
 }
-addEventListener('popstate',()=>{if(openOv)closeOverlay();applyUrl()});
+addEventListener('popstate',()=>{
+  if(ovPopping){ovPopping=false;if(location.href===ovBase)return}   // our own step back off a closed overlay's entry
+  stopTyping();
+  if(openOv){const same=location.href===ovBase;closeOverlay('pop');if(same)return}   // Back closes the overlay, and only that
+  ovEntry=false;
+  applyUrl();
+});
 
 /* ---------- start ---------- */
+/* /api/meta: suburbs, types and features. A failed load is tried again a few times, then on the next query,
+   with a notice over the filters until it arrives. */
+let metaTry=null,metaTimer=null,metaFails=0,metaFailedAt=0;
+const META_WAIT=[2000,6000,15000];
+function loadMeta(){
+  if(meta)return Promise.resolve(meta);
+  if(metaTry)return metaTry;
+  clearTimeout(metaTimer);metaTimer=null;
+  metaTry=getJSON('/api/meta').then(m=>{metaTry=null;meta=m;metaArrived();return m},e=>{
+    metaTry=null;
+    if(!e.signedOut&&!e.forbidden){
+      metaFails++;metaFailedAt=Date.now();
+      const again=e.status!==429&&metaFails<=META_WAIT.length;   // the daily limit will not lift in seconds
+      if(again)metaTimer=setTimeout(()=>{metaTimer=null;loadMeta().catch(()=>{})},META_WAIT[metaFails-1]);
+      metaNote(friendly(e),again);
+    }
+    throw e;
+  });
+  return metaTry;
+}
+function needMeta(){if(!meta&&!metaTry&&!metaTimer&&Date.now()-metaFailedAt>3000)loadMeta().catch(()=>{})}
+function metaNote(msg,again){
+  const p=$('#meta-note');
+  if(!msg){p.hidden=true;p.replaceChildren();return}
+  p.replaceChildren("Couldn't load the suburbs and features. "+sentence(msg)+(again?' Trying again shortly.':' '));
+  if(!again){const b=el('button','lnk','Try again');b.type='button';b.onclick=()=>{loadMeta().catch(()=>{})};p.append(b)}
+  p.hidden=false;
+}
+/* meta arrived, at load or later: everything drawn without it is drawn again */
+function metaArrived(){
+  clearTimeout(metaTimer);metaTimer=null;metaFails=0;metaNote(null);
+  renderMeta();syncControls();fillAddSuburbs();
+  if(view==='estimate')renderEstForm();
+}
 function renderMeta(){
   const typeSel=$('#type');typeSel.replaceChildren();
   meta.property_types.forEach(t=>typeSel.append(new Option(TYPE_LABEL[t]||t,t)));
@@ -2274,14 +2435,13 @@ function renderRunInfo(){
   renderHostFoot();
 }
 async function start(){
-  try{meta=await getJSON('/api/meta');renderMeta()}
-  catch(e){if(e.signedOut)return;showError('Could not load suburbs and features: '+(e.message==='Failed to fetch'?'could not reach the server':e.message))}
+  renderHostFoot();   // the Update button does not wait for the suburbs
+  try{await loadMeta()}
+  catch(e){if(e.signedOut||e.forbidden)return}
   applyUrl();
 }
 
 /* ---------- hosted only: the sign-in screen, and the footer line ---------- */
-const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const stamp=t=>DAYS[t.getDay()]+' '+t.getDate()+' '+MON[t.getMonth()]+', '+pad(t.getHours())+':'+pad(t.getMinutes());
 function renderHostFoot(){
   if(!HOSTED)return;
   const t=meta&&meta.published_at?new Date(meta.published_at):null;
@@ -2289,36 +2449,63 @@ function renderHostFoot(){
   if(!updAsked){updAsked=true;loadUpdate()}
 }
 /* The Update button. The site cannot reach the Mac: pressing it leaves a request the Mac picks up within
-   five minutes when it is awake. While one is waiting or running the page asks again every two minutes. */
-let updAsked=false,updTimer=null,updBusy=false,updDone=null;
+   five minutes when it is awake. While one is waiting or running the page asks again every two minutes, a
+   failed ask included; after the cool-down it asks once more so the button comes back. A hidden tab asks
+   when it is seen again. */
+let updAsked=false,updTimer=null,updBusy=false,updDone=null,updDue=false,updSeq=0,updAt=0;
 const UPD_EVERY=120000;
 const updDur=m=>m<60?m+' min':Math.floor(m/60)+' h'+(m%60?' '+(m%60)+' min':'');
-function showUpdate(u){
+function updLater(ms){clearTimeout(updTimer);updDue=false;updTimer=setTimeout(()=>{updTimer=null;if(document.hidden)updDue=true;else loadUpdate()},ms)}
+/* `said`: the reason a press just failed, kept in front of the state it is followed by */
+function showUpdate(u,said){
   const btn=$('#upd-btn'),msg=$('#upd-msg'),busy=u.state!=='idle';
   if(updBusy&&!busy)updDone=u.outcome==='ok'?'ok':'failed';
   updBusy=busy;
-  const mac=u.mac_awake?'':(u.mac_seen_at?' The Mac has been asleep or offline since '+stamp(new Date(u.mac_seen_at))+'; it starts when it wakes.':' The Mac is not checking for requests yet.');
+  const now=Date.parse(u.now)||Date.now(),asked=Date.parse(u.requested_at),seen=Date.parse(u.mac_seen_at);
+  const asleep=u.mac_seen_at?'The Mac has been asleep or offline since '+stamp(new Date(seen))+'; it starts when it wakes.':'The Mac is not checking for requests yet.';
   let text='',label='';
   if(u.state==='running')text='Updating now, started '+stamp(new Date(u.started_at))+'.'+(u.minutes?' The last one took '+updDur(u.minutes)+'.':'');
-  else if(u.state==='waiting')text='Update requested.'+(u.mac_awake?' The Mac starts within 5 minutes.':mac);
+  else if(u.state==='waiting'){
+    /* the Mac has looked since the request and not started: a run was already going, and it counts as this
+       update (ondemand.py "joined"). Its seen time then stands still, so mac_awake alone would read as asleep. */
+    const joined=!isNaN(asked)&&!isNaN(seen)&&seen>=asked;
+    text='Update requested'+(isNaN(asked)?'.':' at '+stamp(new Date(asked))+'.')+' '+
+      (joined?'A run was already going on the Mac; it counts as this update. Waiting for it to finish.':u.mac_awake&&!(now-asked>6e5)?'The Mac starts within 5 minutes.':asleep);
+  }
   else if(updDone==='ok'){text='New data is ready.';label='Show it'}
   else if(u.next_at)text=(updDone==='failed'?'The update did not finish. ':'')+'Next update possible after '+stamp(new Date(u.next_at))+'.';
-  else{label='Update now';text=(updDone==='failed'||(u.outcome&&u.outcome!=='ok')?'The last update did not finish.':'')+mac}
+  else{
+    label='Update now';
+    text=(updDone==='failed'||(u.outcome&&u.outcome!=='ok')?'The last update did not finish. ':'')+
+      (u.mac_awake?'':u.mac_seen_at?'The Mac is asleep or offline; an update will start when it wakes.':'The Mac is not checking for requests yet.');
+  }
   btn.hidden=!label;btn.textContent=label||'Update now';btn.disabled=false;
-  msg.textContent=text.trim();
-  clearTimeout(updTimer);
-  if(busy)updTimer=setTimeout(()=>{if(document.hidden)showUpdate(u);else loadUpdate()},UPD_EVERY);
+  msg.textContent=((said?sentence(said)+' ':'')+text).trim();
+  if(busy)updLater(UPD_EVERY);
+  else if(u.next_at&&updDone!=='ok'){const left=Date.parse(u.next_at)-now;updLater(Math.min(Math.max(left,0),4*3600e3)+5000)}
+  else{clearTimeout(updTimer);updTimer=null;updDue=false}
 }
-function loadUpdate(){
+function loadUpdate(said){
   if(!HOSTED)return;
-  getJSON('/api/update').then(showUpdate,()=>{});
+  const my=++updSeq;updDue=false;updAt=Date.now();
+  getJSON('/api/update').then(u=>{if(my===updSeq)showUpdate(u,said)},e=>{
+    if(my!==updSeq||e.signedOut||e.forbidden)return;   // signing back in asks again (resume)
+    if(e.status!==429)updLater(UPD_EVERY);              // one failed look must not end the polling
+  });
 }
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&HOSTED&&updAsked&&(updDue||updBusy&&Date.now()-updAt>30000))loadUpdate();
+});
 $('#upd-btn').addEventListener('click',async()=>{
   const btn=$('#upd-btn');
   if(updDone==='ok'){location.reload();return}
   btn.disabled=true;
-  try{showUpdate(await postJSON('/api/update',{}))}
-  catch(e){$('#upd-msg').textContent=friendly(e);btn.disabled=false;loadUpdate()}
+  const my=++updSeq;
+  try{const u=await postJSON('/api/update',{});if(my===updSeq)showUpdate(u)}
+  catch(e){
+    const m=friendly(e);$('#upd-msg').textContent=m;btn.disabled=false;
+    if(!e.signedOut&&!e.forbidden)loadUpdate(m);
+  }
 });
 let signinBox=null;
 function buildSignIn(){
@@ -2352,6 +2539,7 @@ function buildSignIn(){
 function showSignIn(message){
   if(openOv)closeOverlay();
   if(!signinBox){signinBox=buildSignIn();document.body.append(signinBox)}
+  if(blockBox)blockBox.hidden=true;
   document.body.classList.add('locked');
   $('#ftr-host').hidden=true;
   signinBox.hidden=false;signinBox._msg.textContent=message||'';
@@ -2360,18 +2548,39 @@ function showSignIn(message){
 function hideSignIn(){
   document.body.classList.remove('locked');
   if(signinBox)signinBox.hidden=true;
+  if(blockBox)blockBox.hidden=true;
   $('#ftr-host').hidden=false;
+}
+/* signed in, but this account is not let in (403): say so plainly; the session stays, so there is no sign-in loop */
+let blockBox=null;
+function showBlocked(message){
+  if(openOv)closeOverlay();
+  if(signinBox)signinBox.hidden=true;
+  if(!blockBox){
+    blockBox=el('div');blockBox.id='blocked';
+    const p=el('p','q errline');p.setAttribute('role','alert');
+    const again=el('button','go f12','Try again');again.type='button';again.onclick=()=>location.reload();
+    const out=el('button','go f12','Sign out');out.type='button';out.onclick=signOutNow;
+    blockBox.append(el('h1','f40','Sold Radar'),p,again,out);blockBox._msg=p;
+    document.body.append(blockBox);
+  }
+  document.body.classList.add('locked');
+  $('#ftr-host').hidden=true;
+  blockBox._msg.textContent=message;blockBox.hidden=false;
 }
 /* back in after signing in again: keep what is on screen (an unsaved note stays in its box and is saved) */
 function resume(){
+  if(updAsked)loadUpdate();   // the Update line may have stopped while signed out
   if(!meta)start();
   else if(view==='home'&&noteCtl)noteCtl.save();
   else{renderHostFoot();applyUrl()}
 }
+/* a fresh page after signing out: nothing stays in the hidden DOM. The server is told, but never waited on for long. */
+async function signOutNow(){await sess.signOut();location.reload()}
 function boot(){
   if(!HOSTED){start();return}
   $('#to-est').hidden=true;
-  $('#sign-out').onclick=async()=>{await sess.signOut();location.reload()};   /* a fresh page: nothing stays in the hidden DOM */
+  $('#sign-out').onclick=signOutNow;
   if(sess.signedIn()){hideSignIn();start()}else showSignIn('');
 }
 boot();
