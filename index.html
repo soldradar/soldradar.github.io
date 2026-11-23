@@ -123,6 +123,7 @@ a.row:focus-visible{outline-offset:-4px}
 .more:hover{background:var(--bg-2)}
 
 footer{display:flex;justify-content:space-between;padding:0 var(--g) 28px;gap:20px}
+#upd{margin-top:4px}#upd-btn[disabled]{opacity:.5}
 footer div div{margin-bottom:4px}
 
 .ov{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;overscroll-behavior:contain}
@@ -537,7 +538,7 @@ body.locked #hdr,body.locked #main,body.locked footer,body.locked .ov,body.locke
 </footer>
 
 <footer class="f12 muted" id="ftr-host" hidden>
-  <div id="ft-host-upd"></div>
+  <div><div id="ft-host-upd"></div><div id="upd"><button class="lnk" id="upd-btn" type="button" hidden>Update now</button> <span id="upd-msg" role="status" aria-live="polite"></span></div></div>
   <div style="text-align:right"><button class="lnk" id="sign-out" type="button">Sign out</button></div>
 </footer>
 
@@ -2280,11 +2281,45 @@ async function start(){
 
 /* ---------- hosted only: the sign-in screen, and the footer line ---------- */
 const DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const stamp=t=>DAYS[t.getDay()]+' '+t.getDate()+' '+MON[t.getMonth()]+', '+pad(t.getHours())+':'+pad(t.getMinutes());
 function renderHostFoot(){
   if(!HOSTED)return;
   const t=meta&&meta.published_at?new Date(meta.published_at):null;
-  $('#ft-host-upd').textContent=t&&!isNaN(t)?'Updated '+DAYS[t.getDay()]+' '+t.getDate()+' '+MON[t.getMonth()]+', '+pad(t.getHours())+':'+pad(t.getMinutes()):'';
+  $('#ft-host-upd').textContent=t&&!isNaN(t)?'Updated '+stamp(t):'';
+  if(!updAsked){updAsked=true;loadUpdate()}
 }
+/* The Update button. The site cannot reach the Mac: pressing it leaves a request the Mac picks up within
+   five minutes when it is awake. While one is waiting or running the page asks again every two minutes. */
+let updAsked=false,updTimer=null,updBusy=false,updDone=null;
+const UPD_EVERY=120000;
+const updDur=m=>m<60?m+' min':Math.floor(m/60)+' h'+(m%60?' '+(m%60)+' min':'');
+function showUpdate(u){
+  const btn=$('#upd-btn'),msg=$('#upd-msg'),busy=u.state!=='idle';
+  if(updBusy&&!busy)updDone=u.outcome==='ok'?'ok':'failed';
+  updBusy=busy;
+  const mac=u.mac_awake?'':(u.mac_seen_at?' The Mac has been asleep or offline since '+stamp(new Date(u.mac_seen_at))+'; it starts when it wakes.':' The Mac is not checking for requests yet.');
+  let text='',label='';
+  if(u.state==='running')text='Updating now, started '+stamp(new Date(u.started_at))+'.'+(u.minutes?' The last one took '+updDur(u.minutes)+'.':'');
+  else if(u.state==='waiting')text='Update requested.'+(u.mac_awake?' The Mac starts within 5 minutes.':mac);
+  else if(updDone==='ok'){text='New data is ready.';label='Show it'}
+  else if(u.next_at)text=(updDone==='failed'?'The update did not finish. ':'')+'Next update possible after '+stamp(new Date(u.next_at))+'.';
+  else{label='Update now';text=(updDone==='failed'||(u.outcome&&u.outcome!=='ok')?'The last update did not finish.':'')+mac}
+  btn.hidden=!label;btn.textContent=label||'Update now';btn.disabled=false;
+  msg.textContent=text.trim();
+  clearTimeout(updTimer);
+  if(busy)updTimer=setTimeout(()=>{if(document.hidden)showUpdate(u);else loadUpdate()},UPD_EVERY);
+}
+function loadUpdate(){
+  if(!HOSTED)return;
+  getJSON('/api/update').then(showUpdate,()=>{});
+}
+$('#upd-btn').addEventListener('click',async()=>{
+  const btn=$('#upd-btn');
+  if(updDone==='ok'){location.reload();return}
+  btn.disabled=true;
+  try{showUpdate(await postJSON('/api/update',{}))}
+  catch(e){$('#upd-msg').textContent=friendly(e);btn.disabled=false;loadUpdate()}
+});
 let signinBox=null;
 function buildSignIn(){
   const box=el('div');box.id='signin';
